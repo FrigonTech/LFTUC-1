@@ -88,8 +88,9 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
         withContext(Dispatchers.IO) {
             // Start network services in background
             startLFTUCMulticastListener(context, "239.255.255.250", 8080)
-            startLFTUCMulticastEcho(1, "IQOO", lftuc_getLinkLocalIPv6Address(), 8080, 1)
+            startLFTUCMulticastEcho(1, "IQOO", lftuc_getLinkLocalIPv6Address(), 8080, 1, "239.255.255.250")
             startLFTUCServer(context)
+            stopLFTUCMulticastEcho()
 
             // Wait a moment for server to initialize
             delay(3500)

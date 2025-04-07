@@ -295,6 +295,7 @@ public class lftuc_main_lib {
     //---------------------------------------ECHO VARIABLES-----------------------------------------
     private static Thread multicastEchoThread;
     private static boolean isEchoing = false;
+    private static boolean deadEchoPacketSent = false;
 
     //------------------------------------Echo LFTUC Message----------------------------------------
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus){
@@ -306,6 +307,7 @@ public class lftuc_main_lib {
             return;
         }
         isEchoing = true;
+        deadEchoPacketSent = false;
 
         multicastEchoThread = new Thread(() -> {
             MulticastSocket socket = null;
@@ -332,9 +334,14 @@ public class lftuc_main_lib {
                     Log.d("MulticastEcho:", "Sending multicast message: " + lftuc_payload);
                     lftuc_receivedMessages.add("MulticastEcho: Sending multicast message: "+numberedMessage);
                     socket.send(packet);
-
                     Thread.sleep(2000);  // Wait 2 seconds before sending again
                 }
+
+                String declareOfflineEcho = AddressCode+"*"+DeviceName+"*"+IPAddress+"*"+port+"*"+0;
+                byte[] data = declareOfflineEcho.getBytes(StandardCharsets.UTF_8);
+                packet = new DatagramPacket(data, data.length, group, port);
+                socket.send(packet);
+                deadEchoPacketSent = true;
             } catch (IOException e) {
                 lftuc_receivedMessages.add("MulticastEcho: Error in multicast echo: " + e.getMessage());
                 Log.e("MulticastEcho", "Error: " + e.getMessage(), e);
@@ -353,16 +360,18 @@ public class lftuc_main_lib {
     }
 
     //-----------------------------------Stop LFTUC Echo--------------------------------------------
-    public static void stopLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus) {
+    public static void stopLFTUCMulticastEcho() {
         isEchoing = false;
-        if (multicastEchoThread != null) {
-            multicastEchoThread.interrupt();
-            multicastEchoThread = null;
+        while(!deadEchoPacketSent){
+            if(deadEchoPacketSent){
+                if (multicastEchoThread != null) {
+                    multicastEchoThread.interrupt();
+                    multicastEchoThread = null;
+                }
+            }
         }
-        String lftuc_payload = AddressCode+"*"+DeviceName+"*"+IPAddress+"*"+port+"*"+OnlineStatus;
         lftuc_receivedMessages.add("MulticastEcho : Multicast echo stopped.");
     }
-
     //-------------------------------------START LFTUC Server---------------------------------------
     //-------------------------------------Server-Side Variables
     public static File lftuc_SharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
