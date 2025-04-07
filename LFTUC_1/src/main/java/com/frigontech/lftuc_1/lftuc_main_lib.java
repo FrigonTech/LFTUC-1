@@ -437,7 +437,7 @@ public class lftuc_main_lib {
         serverThread.start();
     }
     //------------------------------------STOP LFTUC Server-----------------------------------------
-    public void StopLFTUCServer(){
+    public void stopLFTUCServer(){
         serverRunning = false;
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {
