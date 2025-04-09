@@ -432,7 +432,7 @@ public class lftuc_main_lib {
                 try{
                     if(serverSocket != null && !serverSocket.isClosed()){
                         serverSocket.close();
-                        serverRunning.set(false);
+                        lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
                     }
                 }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
             }
@@ -442,16 +442,7 @@ public class lftuc_main_lib {
     }
     //------------------------------------STOP LFTUC Server-----------------------------------------
     public void stopLFTUCServer(){
-        try {
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close(); // this breaks the blocking `accept()`
-            }
-        } catch (IOException e) {
-            lftuc_receivedMessages.add("Error closing server: " + e.getMessage());
-        } finally{
-            serverRunning.set(false);
-        }
-        lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
+        serverRunning.set(false);
     }
     //------------------------------------Handle LFTUC Client---------------------------------------
     private static void LFTUCHandleClient(Socket clientSocket, Boolean rootAccess) {
