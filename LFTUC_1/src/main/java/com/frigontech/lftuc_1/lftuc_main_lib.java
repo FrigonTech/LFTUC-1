@@ -15,6 +15,7 @@ import java.text.MessageFormat;
 import java.util.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class lftuc_main_lib {
 
@@ -377,13 +378,13 @@ public class lftuc_main_lib {
     public static File lftuc_SharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
     public static File lftuc_RootDir = Environment.getExternalStorageDirectory();
     public static ServerSocket serverSocket;
-    public static volatile Boolean serverRunning = false;
+    public static AtomicBoolean serverRunning = new AtomicBoolean(false);
     public static Thread serverThread;
     public static void startLFTUCServer(Context context) {
         startLFTUCServer(context, false);
     }
     public static void startLFTUCServer(Context context, Boolean rootAccess) {
-        if(serverRunning){
+        if(serverRunning.get()){
             lftuc_receivedMessages.add("LFTUC SERVER IS ALREADY RUNNING!");
             return;
         }
@@ -392,6 +393,7 @@ public class lftuc_main_lib {
                 String ipv6Address = lftuc_getLinkLocalIPv6Address();
                 if (ipv6Address == null) {
                     lftuc_receivedMessages.add("Error: Could not find a valid IPv6 link-local address");
+                    serverRunning.set(false);
                     return;
                 }
 
@@ -407,7 +409,7 @@ public class lftuc_main_lib {
                     lftuc_receivedMessages.add("no write permission");
                     return;
                 }
-                serverRunning = true;
+                serverRunning.set(true);
 
                 if (!sharedDir.exists()) {
                     sharedDir.mkdirs(); // use mkdirs() for nested paths
@@ -417,18 +419,20 @@ public class lftuc_main_lib {
                 }
 
                 // Server is now live, serve the file to any connecting client
-                while (true) {
+                while (serverRunning.get()) {
                     Socket clientSocket = serverSocket.accept();
                     new Thread(() -> LFTUCHandleClient(clientSocket, rootAccess)).start();
                 }
 
             } catch (IOException e) {
                 lftuc_receivedMessages.add("Server error: " + e.getMessage());
-            } finally {
-                serverRunning = false;
+                serverRunning.set(false);
+            }
+            finally {
                 try{
                     if(serverSocket != null && !serverSocket.isClosed()){
                         serverSocket.close();
+                        serverRunning.set(false);
                     }
                 }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
             }
@@ -438,13 +442,14 @@ public class lftuc_main_lib {
     }
     //------------------------------------STOP LFTUC Server-----------------------------------------
     public void stopLFTUCServer(){
-        serverRunning = false;
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close(); // this breaks the blocking `accept()`
             }
         } catch (IOException e) {
             lftuc_receivedMessages.add("Error closing server: " + e.getMessage());
+        } finally{
+            serverRunning.set(false);
         }
         lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
     }
