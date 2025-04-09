@@ -300,7 +300,7 @@ public class lftuc_main_lib {
 
     //------------------------------------Echo LFTUC Message----------------------------------------
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus){
-        startLFTUCMulticastEcho(1, "Vivo", lftuc_getLinkLocalIPv6Address(), 8080, 1,"239.255.255.250");
+        startLFTUCMulticastEcho(1, DeviceName, lftuc_getLinkLocalIPv6Address(), 8080, 1,"239.255.255.250");
     }
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus, String multicastGroup) {
         if (isEchoing) {
@@ -428,21 +428,19 @@ public class lftuc_main_lib {
                 lftuc_receivedMessages.add("Server error: " + e.getMessage());
                 serverRunning.set(false);
             }
-            finally {
-                try{
-                    if(serverSocket != null && !serverSocket.isClosed()){
-                        serverSocket.close();
-                        lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
-                    }
-                }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
-            }
         });
 
         serverThread.start();
     }
     //------------------------------------STOP LFTUC Server-----------------------------------------
     public static void stopLFTUCServer(){
-        serverRunning.set(false);
+        try{
+            if(serverSocket != null && !serverSocket.isClosed()){
+                serverSocket.close();
+                lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
+                serverRunning.set(false);
+            }
+        }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
     }
     //------------------------------------Handle LFTUC Client---------------------------------------
     private static void LFTUCHandleClient(Socket clientSocket, Boolean rootAccess) {
