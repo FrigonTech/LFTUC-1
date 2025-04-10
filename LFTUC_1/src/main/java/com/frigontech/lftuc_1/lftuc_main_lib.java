@@ -134,7 +134,8 @@ public class lftuc_main_lib {
     public static final List<String> lftuc_receivedMessages = Collections.synchronizedList(new ArrayList<>());
     public static List<String> lftuc_getReceivedMessages() {
         synchronized (lftuc_receivedMessages) {
-            return new ArrayList<>(lftuc_receivedMessages); // Return a copy for thread safety
+            // Make sure to return an immutable copy for thread safety
+            return Collections.unmodifiableList(new ArrayList<>(lftuc_receivedMessages));
         }
     }
     static {
