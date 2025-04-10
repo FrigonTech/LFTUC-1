@@ -386,6 +386,7 @@ public class lftuc_main_lib {
     public static void startLFTUCServer(Context context, Boolean rootAccess) {
         if(serverRunning.get()){
             lftuc_receivedMessages.add("LFTUC SERVER IS ALREADY RUNNING!");
+            Log.d("Server:", "already running.");
             return;
         }
         serverThread = new Thread(() -> {
@@ -393,6 +394,7 @@ public class lftuc_main_lib {
                 String ipv6Address = lftuc_getLinkLocalIPv6Address();
                 if (ipv6Address == null) {
                     lftuc_receivedMessages.add("Error: Could not find a valid IPv6 link-local address");
+                    Log.d("Server:", "couldn't fina a valid ipv6 address.");
                     serverRunning.set(false);
                     return;
                 }
@@ -410,6 +412,7 @@ public class lftuc_main_lib {
                     return;
                 }
                 serverRunning.set(true);
+                Log.d("Server:", "serverRunning.get() = true");
 
                 if (!sharedDir.exists()) {
                     sharedDir.mkdirs(); // use mkdirs() for nested paths
@@ -427,6 +430,7 @@ public class lftuc_main_lib {
             } catch (IOException e) {
                 lftuc_receivedMessages.add("Server error: " + e.getMessage());
                 serverRunning.set(false);
+                Log.d("Server:", "serverRunning.get() = false");
             }
         });
 
@@ -439,6 +443,7 @@ public class lftuc_main_lib {
                 serverSocket.close();
                 lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
                 serverRunning.set(false);
+                Log.d("Server:", "serverRunning.get() = false");
             }
         }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
     }
