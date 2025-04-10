@@ -109,51 +109,34 @@ public class lftuc_main_lib {
             while (interfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = interfaces.nextElement();
 
-                addMessage("NIC---- Interface: " + networkInterface.getName() + " ----");
-                addMessage("NIC Display Name: " + networkInterface.getDisplayName());
-                addMessage("NIC Is Up: " + networkInterface.isUp());
-                addMessage("NIC Is Loopback: " + networkInterface.isLoopback());
-                addMessage("NIC Supports Multicast: " + networkInterface.supportsMulticast());
-                addMessage("NIC Is Virtual: " + networkInterface.isVirtual());
+                lftuc_receivedMessages.add("NIC---- Interface: " + networkInterface.getName() + " ----");
+                lftuc_receivedMessages.add("NIC Display Name: " + networkInterface.getDisplayName());
+                lftuc_receivedMessages.add("NIC Is Up: " + networkInterface.isUp());
+                lftuc_receivedMessages.add("NIC Is Loopback: " + networkInterface.isLoopback());
+                lftuc_receivedMessages.add("NIC Supports Multicast: " + networkInterface.supportsMulticast());
+                lftuc_receivedMessages.add("NIC Is Virtual: " + networkInterface.isVirtual());
 
                 Enumeration<InetAddress> addresses = networkInterface.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
-                    addMessage("NIC Address: " + addr.getHostAddress());
+                    lftuc_receivedMessages.add("NIC Address: " + addr.getHostAddress());
                 }
             }
         } catch (SocketException e) {
-            addMessage("NIC Error listing network interfaces: " + e.getMessage());
+            lftuc_receivedMessages.add("NIC Error listing network interfaces: " + e.getMessage());
         }
     }
     //--------------------------------LISTENER VARIABLES--------------------------------------------
-    // Listener interface (defined inline!)
-    public interface MessageListener {
-        void onNewMessage(String message);
-    }
-    // Listener reference
-    private static MessageListener listener;
-    // Register listener
-    public static void setMessageListener(MessageListener l) {
-        listener = l;
-    }
-    // Call this when new messages arrive
-    public static void addMessage(String msg) {
-        addMessage(msg);
-        if (listener != null) {
-            listener.onNewMessage(msg);
-        }
-    }
     private static Thread multicastThread;
     private static MulticastSocket multicastSocket;
     private static WifiManager.MulticastLock multicastLock;
     //------------Public synchronized message(response) list that Kotlin can access directly--------
-    public final List<String> lftuc_receivedMessages = Collections.synchronizedList(new ArrayList<>());
+    public static final List<String> lftuc_receivedMessages = Collections.synchronizedList(new ArrayList<>());
     static {
-        addMessage("--Tester Started Here--");
-        addMessage("✅Device Name - $name");
-        addMessage(MessageFormat.format("⚠️Local IPv4 - {0}", lftuc_getLocalIpv4Address()));
-        addMessage(MessageFormat.format("⚠️Link-Local IPv6 - {0}", lftuc_getLinkLocalIPv6Address()));
+        lftuc_receivedMessages.add("--Tester Started Here--");
+        lftuc_receivedMessages.add("✅Device Name - $name");
+        lftuc_receivedMessages.add(MessageFormat.format("⚠️Local IPv4 - {0}", lftuc_getLocalIpv4Address()));
+        lftuc_receivedMessages.add(MessageFormat.format("⚠️Link-Local IPv6 - {0}", lftuc_getLinkLocalIPv6Address()));
     }
     //---------------------------------------LFTUC Protocol Server List-----------------------------
     public static class LFTUCServers{
@@ -181,7 +164,7 @@ public class lftuc_main_lib {
     //------------------------------------Parse LFTUC Payload---------------------------------------
     private static void ParseLFTUCPayload(String Payload){
         List<String> PayloadParts = Arrays.asList(Payload.split("\\*")); // we need 2 backslashes to tell regex to treat '*' literally
-        addMessage(PayloadParts.toString());
+        lftuc_receivedMessages.add(PayloadParts.toString());
         try{
             // check is address code is something from the structure, need a better way in the future
             //check is the server is online and add server in the server list --"currentLFTUCServers"--
@@ -192,7 +175,7 @@ public class lftuc_main_lib {
                     synchronized (lftuc_currentServers){
                         lftuc_currentServers.removeIf(server-> server.ServerAddress.equals(IPAddress));
                     };
-                    addMessage("removed IP Address: "+IPAddress);
+                    lftuc_receivedMessages.add("removed IP Address: "+IPAddress);
                     break;
 
                 case "1":
@@ -205,7 +188,7 @@ public class lftuc_main_lib {
                                 Integer.parseInt(PayloadParts.get(3)),
                                 Integer.parseInt(PayloadParts.get(4))
                         ));
-                        addMessage("added IP Address: "+PayloadParts.get(2));
+                        lftuc_receivedMessages.add("added IP Address: "+PayloadParts.get(2));
                         Log.d("LFTUC", lftuc_currentServers.toString());
                     }
                     break;
@@ -218,8 +201,8 @@ public class lftuc_main_lib {
         }
         catch(Exception e){
             System.err.println(e.getMessage());
-            addMessage(e.getMessage());
-            addMessage(PayloadParts.get(4));
+            lftuc_receivedMessages.add(e.getMessage());
+            lftuc_receivedMessages.add(PayloadParts.get(4));
         }
     }
 
@@ -232,50 +215,50 @@ public class lftuc_main_lib {
             try {
                 Log.d("MulticastReceiver", "Acquiring multicast lock...");
                 multicastLock.acquire();
-                addMessage("Acquiring multicast lock...");
+                lftuc_receivedMessages.add("Acquiring multicast lock...");
 
                 Log.d("MulticastReceiver", "Creating MulticastSocket on port " + port);
                 multicastSocket = new MulticastSocket(port);
                 multicastSocket.setReuseAddress(true);
-                addMessage("Creating MulticastSocket on port " + port);
+                lftuc_receivedMessages.add("Creating MulticastSocket on port " + port);
 
                 InetAddress group = InetAddress.getByName(multicastGroup);
                 InetSocketAddress groupSocketAddress = new InetSocketAddress(group, port);
 
                 Log.d("MulticastReceiver", "Getting Network Interface...");
-                addMessage("Getting Network Interface...");
+                lftuc_receivedMessages.add("Getting Network Interface...");
                 NetworkInterface networkInterface = NetworkInterface.getByName("wlan0");
 
                 if (networkInterface == null) {
                     Log.e("MulticastReceiver", "Network Interface wlan0 not found!");
-                    addMessage("Network Interface wlan0 not found!");
+                    lftuc_receivedMessages.add("Network Interface wlan0 not found!");
                     return;
                 }
 
                 Log.d("MulticastReceiver", "Joining multicast group " + multicastGroup);
-                addMessage("Joining multicast group " + multicastGroup);
+                lftuc_receivedMessages.add("Joining multicast group " + multicastGroup);
                 multicastSocket.joinGroup(groupSocketAddress, networkInterface);
                 Log.d("MulticastReceiver", "Successfully joined group! Listening for packets...");
-                addMessage("Successfully joined group! Listening for packets...");
+                lftuc_receivedMessages.add("Successfully joined group! Listening for packets...");
 
                 byte[] buffer = new byte[1024];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
                 while (!Thread.currentThread().isInterrupted()) {
                     Log.d("MulticastReceiver", "Waiting for multicast packet...");
-                    addMessage("Waiting for multicast packet...");
+                    lftuc_receivedMessages.add("Waiting for multicast packet...");
                     multicastSocket.receive(packet);  // BLOCKING CALL
 
                     String message = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
                     Log.d("MulticastReceiver", "Multicast Received: " + message);
                     ParseLFTUCPayload(message);
-                    addMessage(message);
+                    lftuc_receivedMessages.add(message);
 
                     packet.setLength(buffer.length); // Reset packet length
                 }
             } catch (IOException e) {
                 Log.e("MulticastReceiver", "Multicast Error: " + e.getMessage(), e);
-                addMessage("Multicast Error: " + e.getMessage());
+                lftuc_receivedMessages.add("Multicast Error: " + e.getMessage());
             } finally {
                 stopLFTUCMulticastListener(); // Cleanup on exit
             }
@@ -294,19 +277,19 @@ public class lftuc_main_lib {
 
             if (multicastSocket != null && !multicastSocket.isClosed()) {
                 Log.d("MulticastReceiver", "Leaving multicast group...");
-                addMessage("Leaving multicast group...");
+                lftuc_receivedMessages.add("Leaving multicast group...");
                 multicastSocket.close();  // Closing the socket unblocks the receive call
                 multicastSocket = null;
             }
 
             if (multicastLock != null && multicastLock.isHeld()) {
                 Log.d("MulticastReceiver", "Releasing multicast lock...");
-                addMessage("Releasing multicast lock...");
+                lftuc_receivedMessages.add("Releasing multicast lock...");
                 multicastLock.release();
             }
         } catch (Exception e) {
             Log.e("MulticastReceiver", "Error stopping multicast listener: " + e.getMessage(), e);
-            addMessage("Error stopping multicast listener: " + e.getMessage());
+            lftuc_receivedMessages.add("Error stopping multicast listener: " + e.getMessage());
         }
     }
 
@@ -321,7 +304,7 @@ public class lftuc_main_lib {
     }
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus, String multicastGroup) {
         if (isEchoing) {
-            addMessage("MulticastEcho : Multicast echo is already running!");
+            lftuc_receivedMessages.add("MulticastEcho : Multicast echo is already running!");
             return;
         }
         isEchoing = true;
@@ -350,7 +333,7 @@ public class lftuc_main_lib {
                     byte[] data = lftuc_payload.getBytes(StandardCharsets.UTF_8);
                     packet = new DatagramPacket(data, data.length, group, port);
                     Log.d("MulticastEcho:", "Sending multicast message: " + lftuc_payload);
-                    addMessage("MulticastEcho: Sending multicast message: "+numberedMessage);
+                    lftuc_receivedMessages.add("MulticastEcho: Sending multicast message: "+numberedMessage);
                     socket.send(packet);
                     Thread.sleep(2000);  // Wait 2 seconds before sending again
                 }
@@ -361,10 +344,10 @@ public class lftuc_main_lib {
                 socket.send(packet);
                 deadEchoPacketSent = true;
             } catch (IOException e) {
-                addMessage("MulticastEcho: Error in multicast echo: " + e.getMessage());
+                lftuc_receivedMessages.add("MulticastEcho: Error in multicast echo: " + e.getMessage());
                 Log.e("MulticastEcho", "Error: " + e.getMessage(), e);
             } catch (InterruptedException e) {
-                addMessage("MulticastEcho: Thread interrupted");
+                lftuc_receivedMessages.add("MulticastEcho: Thread interrupted");
                 Log.d("MulticastEcho", "Thread interrupted");
                 isEchoing = false;
             } finally {
@@ -388,7 +371,7 @@ public class lftuc_main_lib {
                 }
             }
         }
-        addMessage("MulticastEcho : Multicast echo stopped.");
+        lftuc_receivedMessages.add("MulticastEcho : Multicast echo stopped.");
     }
     //-------------------------------------START LFTUC Server---------------------------------------
     //-------------------------------------Server-Side Variables
@@ -402,7 +385,7 @@ public class lftuc_main_lib {
     }
     public static void startLFTUCServer(Context context, Boolean rootAccess) {
         if(serverRunning.get()){
-            addMessage("LFTUC SERVER IS ALREADY RUNNING!");
+            lftuc_receivedMessages.add("LFTUC SERVER IS ALREADY RUNNING!");
             Log.d("Server:", "already running.");
             return;
         }
@@ -410,7 +393,7 @@ public class lftuc_main_lib {
             try {
                 String ipv6Address = lftuc_getLinkLocalIPv6Address();
                 if (ipv6Address == null) {
-                    addMessage("Error: Could not find a valid IPv6 link-local address");
+                    lftuc_receivedMessages.add("Error: Could not find a valid IPv6 link-local address");
                     Log.d("Server:", "couldn't fina a valid ipv6 address.");
                     serverRunning.set(false);
                     return;
@@ -422,10 +405,10 @@ public class lftuc_main_lib {
                 serverSocket = new ServerSocket();
                 // Bind to the IPv6 address and port 8080
                 serverSocket.bind(new InetSocketAddress(ipv6Addr, 8080));
-                addMessage("LFTUC SERVER STARTED\nlftuc://" + ipv6Addr.getHostAddress() + ":8080");
+                lftuc_receivedMessages.add("LFTUC SERVER STARTED\nlftuc://" + ipv6Addr.getHostAddress() + ":8080");
                 File sharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-                    addMessage("no write permission");
+                    lftuc_receivedMessages.add("no write permission");
                     return;
                 }
                 serverRunning.set(true);
@@ -433,9 +416,9 @@ public class lftuc_main_lib {
 
                 if (!sharedDir.exists()) {
                     sharedDir.mkdirs(); // use mkdirs() for nested paths
-                    addMessage("Created directory: " + sharedDir.getAbsolutePath());
+                    lftuc_receivedMessages.add("Created directory: " + sharedDir.getAbsolutePath());
                 }else{
-                    addMessage("Directory already exists: " + sharedDir.getAbsolutePath());
+                    lftuc_receivedMessages.add("Directory already exists: " + sharedDir.getAbsolutePath());
                 }
 
                 // Server is now live, serve the file to any connecting client
@@ -445,7 +428,7 @@ public class lftuc_main_lib {
                 }
 
             } catch (IOException e) {
-                addMessage("Server error: " + e.getMessage());
+                lftuc_receivedMessages.add("Server error: " + e.getMessage());
                 serverRunning.set(false);
                 Log.d("Server:", "serverRunning.get() = false");
             }
@@ -458,7 +441,7 @@ public class lftuc_main_lib {
         try{
             if(serverSocket != null && !serverSocket.isClosed()){
                 serverSocket.close();
-                addMessage("LFTUC SERVER STOPPED!");
+                lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
                 serverRunning.set(false);
                 Log.d("Server:", "serverRunning.get() = false");
             }
@@ -470,7 +453,7 @@ public class lftuc_main_lib {
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()))
         ) {
-            addMessage("Client connected from " + clientSocket.getInetAddress());
+            lftuc_receivedMessages.add("Client connected from " + clientSocket.getInetAddress());
 
             // Read the requested relative path from client
             String requestedPath = in.readLine(); // could be "" or "SubFolder"
@@ -479,26 +462,26 @@ public class lftuc_main_lib {
             // Build the full path under shared directory
             File initialDir = (rootAccess)? lftuc_RootDir : lftuc_SharedDir;
             File targetDir = new File(initialDir, requestedPath);
-            addMessage("Requested folder: " + targetDir.getAbsolutePath());
+            lftuc_receivedMessages.add("Requested folder: " + targetDir.getAbsolutePath());
 
             if (targetDir.exists() && targetDir.isDirectory()) {
                 File[] files = targetDir.listFiles();
-                addMessage("LFTUC*FOLDERSTART*");
+                lftuc_receivedMessages.add("LFTUC*FOLDERSTART*");
                 if (files != null) {
                     for (File file : files) {
-                        addMessage((file.isDirectory() ? "[DIR] " : "[FILE] ") + file.getName());
+                        lftuc_receivedMessages.add((file.isDirectory() ? "[DIR] " : "[FILE] ") + file.getName());
                     }
                 }
-                addMessage("LFTUC*FOLDEREND*");
+                lftuc_receivedMessages.add("LFTUC*FOLDEREND*");
             } else {
-                addMessage("LFTUC*ERROR* Invalid path\n");
+                lftuc_receivedMessages.add("LFTUC*ERROR* Invalid path\n");
             }
 
             out.flush();
             clientSocket.close();
 
         } catch (IOException e) {
-            addMessage("Client error: " + e.getMessage());
+            lftuc_receivedMessages.add("Client error: " + e.getMessage());
         }
     }
     //-------------------------------Map folder to LFTUC server-------------------------------------
@@ -515,7 +498,7 @@ public class lftuc_main_lib {
         File destObject = new File(lftuc_SharedDir, sourceObject.getName());
 
         if(!sourceObject.exists()){
-            addMessage("source file or folder doesn't exist");
+            lftuc_receivedMessages.add("source file or folder doesn't exist");
             return false;
         }
         String sourceType = sourceObject.isDirectory()? "Folder" : "File";
@@ -527,18 +510,18 @@ public class lftuc_main_lib {
             if(replaceObject) destObject.delete(); else return false;
 
             if(sourceObject.renameTo(destObject)) {
-                addMessage(sourceType + " moved...");
+                lftuc_receivedMessages.add(sourceType + " moved...");
                 return true;
             } else {
-                addMessage("can't move " + sourceType + "...");
+                lftuc_receivedMessages.add("can't move " + sourceType + "...");
                 return false;
             }
         }else{
             if(sourceObject.renameTo(destObject)) {
-                addMessage(sourceType + " moved...");
+                lftuc_receivedMessages.add(sourceType + " moved...");
                 return true;
             } else {
-                addMessage("can't move " + sourceType + "...");
+                lftuc_receivedMessages.add("can't move " + sourceType + "...");
                 return false;
             }
         }
@@ -571,7 +554,7 @@ public class lftuc_main_lib {
                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 String response;
                 while ((response = in.readLine()) != null) {
-                    addMessage("Received: " + response);
+                    lftuc_receivedMessages.add("Received: " + response);
                     if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
                         break;
                     }
@@ -582,10 +565,10 @@ public class lftuc_main_lib {
                 socket.close();
 
             } catch (IOException e) {
-                addMessage("Request error: " + e.getMessage());
+                lftuc_receivedMessages.add("Request error: " + e.getMessage());
             }
         } else {
-            addMessage("No Current Servers Found Yet!");
+            lftuc_receivedMessages.add("No Current Servers Found Yet!");
         }
     }
 }
