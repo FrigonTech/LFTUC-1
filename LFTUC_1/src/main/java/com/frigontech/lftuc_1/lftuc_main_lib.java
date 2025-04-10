@@ -132,6 +132,11 @@ public class lftuc_main_lib {
     private static WifiManager.MulticastLock multicastLock;
     //------------Public synchronized message(response) list that Kotlin can access directly--------
     public static final List<String> lftuc_receivedMessages = Collections.synchronizedList(new ArrayList<>());
+    public static List<String> lftuc_getReceivedMessages() {
+        synchronized (lftuc_receivedMessages) {
+            return new ArrayList<>(lftuc_receivedMessages); // Return a copy for thread safety
+        }
+    }
     static {
         lftuc_receivedMessages.add("--Tester Started Here--");
         lftuc_receivedMessages.add("✅Device Name - $name");
@@ -379,6 +384,11 @@ public class lftuc_main_lib {
     public static File lftuc_RootDir = Environment.getExternalStorageDirectory();
     public static ServerSocket serverSocket;
     public static AtomicBoolean serverRunning = new AtomicBoolean(false);
+    public static Boolean lftuc_getServerRunning(){
+        synchronized (serverRunning){
+            return serverRunning.get();
+        }
+    }
     public static Thread serverThread;
     public static void startLFTUCServer(Context context) {
         startLFTUCServer(context, false);
