@@ -148,7 +148,7 @@ public class lftuc_main_lib {
     private static MulticastSocket multicastSocket;
     private static WifiManager.MulticastLock multicastLock;
     //------------Public synchronized message(response) list that Kotlin can access directly--------
-    public static final List<String> lftuc_receivedMessages = Collections.synchronizedList(new ArrayList<>());
+    public final List<String> lftuc_receivedMessages = Collections.synchronizedList(new ArrayList<>());
     static {
         addMessage("--Tester Started Here--");
         addMessage("✅Device Name - $name");
