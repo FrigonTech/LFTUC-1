@@ -74,11 +74,8 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
             activity?.finishAffinity()
         }
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-        intent.data = Uri.parse("package:" + context.packageName)
-        context.startActivity(intent)
-    }
+
+    
 
 
     val messages = remember{mutableStateListOf<String>()}
