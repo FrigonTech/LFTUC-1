@@ -139,12 +139,6 @@ public class lftuc_main_lib {
             return Collections.unmodifiableList(new ArrayList<>(lftuc_receivedMessages));
         }
     }
-    static {
-        lftuc_receivedMessages.add("--Tester Started Here--");
-        lftuc_receivedMessages.add("✅Device Name - $name");
-        lftuc_receivedMessages.add(MessageFormat.format("⚠️Local IPv4 - {0}", lftuc_getLocalIpv4Address()));
-        lftuc_receivedMessages.add(MessageFormat.format("⚠️Link-Local IPv6 - {0}", lftuc_getLinkLocalIPv6Address()));
-    }
     //---------------------------------------LFTUC Protocol Server List-----------------------------
     public static class LFTUCServers{
         public final Integer AddressCode;
