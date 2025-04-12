@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 
 import java.net.*;
 import java.security.spec.ECField;
+import java.sql.Array;
 import java.text.MessageFormat;
 import java.util.*;
 import java.io.*;
@@ -167,6 +168,11 @@ public class lftuc_main_lib {
         }
     }
     public static final List<LFTUCServers> lftuc_currentServers = Collections.synchronizedList(new ArrayList<>());
+    public static List<LFTUCServers> lftuc_getCurrentServers() {
+        synchronized (lftuc_currentServers) {
+            return Collections.unmodifiableList(new ArrayList<>(lftuc_currentServers));
+        }
+    }
     //------------------------------------Parse LFTUC Payload---------------------------------------
     private static void ParseLFTUCPayload(String Payload){
         List<String> PayloadParts = Arrays.asList(Payload.split("\\*")); // we need 2 backslashes to tell regex to treat '*' literally
@@ -306,9 +312,13 @@ public class lftuc_main_lib {
 
     //------------------------------------Echo LFTUC Message----------------------------------------
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus){
-        startLFTUCMulticastEcho(1, DeviceName, lftuc_getLinkLocalIPv6Address(), 8080, 1,"239.255.255.250");
+        startLFTUCMulticastEcho(AddressCode, DeviceName, lftuc_getLinkLocalIPv6Address(), 8080, 1,"239.255.255.250");
     }
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus, String multicastGroup) {
+        if(IPAddress.isBlank()){
+            lftuc_receivedMessages.add("Invalid IP Address: "+IPAddress);
+            return;
+        }
         if (isEchoing) {
             lftuc_receivedMessages.add("MulticastEcho : Multicast echo is already running!");
             return;
@@ -498,6 +508,11 @@ public class lftuc_main_lib {
     //-------------------------------Map folder to LFTUC server-------------------------------------
     //-----------------Mapping folder variables
     public static Boolean lftuc_needToReplaceObject = false;
+    public static Boolean lftuc_getNeedToReplaceObject(){
+        synchronized (lftuc_needToReplaceObject){
+            return lftuc_needToReplaceObject;
+        }
+    }
     public static Boolean moveFileObjectToLFTUCSharedDir(String filePath){
         return moveFileObjectToLFTUCSharedDir(filePath, false);
     }
