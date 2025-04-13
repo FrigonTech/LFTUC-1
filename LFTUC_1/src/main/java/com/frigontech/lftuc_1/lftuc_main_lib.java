@@ -566,15 +566,12 @@ public class lftuc_main_lib {
     public File lftuc_CurrentPath() {
         return new File(lftuc_manipulatedPath);
     }
-    public static void LFTUCRequestSharedFolder(){
-        LFTUCRequestSharedFolder(0, "");
-    }
 
-    public static void LFTUCRequestSharedFolder(Integer index, String relativePath) {
+    public static void LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath) {
         if (lftuc_currentServers.size() > 0) {
             try {
-                InetAddress ipv6Addr = Inet6Address.getByName(lftuc_currentServers.get(index).ServerAddress);
-                int port = lftuc_currentServers.get(index).ServerPort;
+                InetAddress ipv6Addr = Inet6Address.getByName(ServerAddress);
+                int port = Port;
 
                 Socket socket = new Socket();
                 socket.connect(new InetSocketAddress(ipv6Addr, port), 5000);
