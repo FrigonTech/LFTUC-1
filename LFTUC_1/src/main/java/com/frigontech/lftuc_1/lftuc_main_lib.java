@@ -567,7 +567,8 @@ public class lftuc_main_lib {
         return new File(lftuc_manipulatedPath);
     }
 
-    public static void LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath) {
+    public static List<String> LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath) {
+        List<String> filesInHere = new ArrayList<>();
         if (lftuc_currentServers.size() > 0) {
             try {
                 InetAddress ipv6Addr = Inet6Address.getByName(ServerAddress);
@@ -588,9 +589,10 @@ public class lftuc_main_lib {
                     lftuc_receivedMessages.add("Received: " + response);
                     if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
                         break;
+                    }else{
+                        filesInHere.add(response);
                     }
                 }
-
                 in.close();
                 out.close();
                 socket.close();
@@ -601,5 +603,6 @@ public class lftuc_main_lib {
         } else {
             lftuc_receivedMessages.add("No Current Servers Found Yet!");
         }
+        return filesInHere;
     }
 }
