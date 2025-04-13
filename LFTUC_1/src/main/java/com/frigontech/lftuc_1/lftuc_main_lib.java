@@ -160,6 +160,20 @@ public class lftuc_main_lib {
         public String toString(){
             return "lftuc://"+ServerName+"["+ServerAddress+"]:"+ServerPort+"/";
         }
+
+        @Override
+        public boolean equals(Object obj){
+            if(this==obj) return true;
+            if(obj==null || getClass() != obj.getClass()) return false;
+            LFTUCServers other = (LFTUCServers) obj;
+            return ServerAddress.equals(other.ServerAddress) &&
+                    ServerPort.equals(other.ServerPort);
+        }
+
+        @Override
+        public int hashCode(){
+            return 31 * ServerAddress.hashCode() + ServerPort.hashCode();
+        }
     }
     public static final List<LFTUCServers> lftuc_currentServers = Collections.synchronizedList(new ArrayList<>());
     public static List<LFTUCServers> lftuc_getCurrentServers() {
