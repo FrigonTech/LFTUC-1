@@ -498,9 +498,12 @@ public class lftuc_main_lib {
                 lftuc_receivedMessages.add("LFTUC*FOLDERSTART*");
                 if (files != null) {
                     for (File file : files) {
-                        lftuc_receivedMessages.add((file.isDirectory() ? "[DIR] " : "[FILE] ") + file.getName());
+                        String fileEntry = (file.isDirectory() ? "[DIR] " : "[FILE] ") + file.getName();
+                        out.write(fileEntry + "\n"); // ← Send to client
+                        lftuc_receivedMessages.add(fileEntry); // ← Optional logging
                     }
                 }
+                out.write("LFTUC*FOLDEREND*\n"); // ← End signal
                 lftuc_receivedMessages.add("LFTUC*FOLDEREND*");
             } else {
                 lftuc_receivedMessages.add("LFTUC*ERROR* Invalid path\n");
