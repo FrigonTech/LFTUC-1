@@ -563,46 +563,53 @@ public class lftuc_main_lib {
     //-------------------------------LFTUC Client-Side Requests-------------------------------------
     //-------------------------------Client-Side Variables
     public String lftuc_manipulatedPath = Environment.getExternalStorageDirectory().toString()+"/.LFTUC-Shared";
+    public static Thread clientThread;
     public File lftuc_CurrentPath() {
         return new File(lftuc_manipulatedPath);
     }
 
-    public static List<String> LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath) {
-        List<String> filesInHere = new ArrayList<>();
-        if (lftuc_currentServers.size() > 0) {
-            try {
-                InetAddress ipv6Addr = Inet6Address.getByName(ServerAddress);
-                int port = Port;
+    public interface LFTUCFolderCallback {
+        void onResult(List<String> files);
+        void onError(String errorMessage);
+    }
 
-                Socket socket = new Socket();
-                socket.connect(new InetSocketAddress(ipv6Addr, port), 5000);
+    public static void LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath, LFTUCFolderCallback callback) {
+        new Thread(() -> {
+            List<String> filesInHere = new ArrayList<>();
 
-                // Write the relative path first
-                BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                out.write(relativePath + "\n");
-                out.flush();
+            if (lftuc_currentServers.size() > 0) {
+                try {
+                    InetAddress ipv6Addr = Inet6Address.getByName(ServerAddress);
+                    Socket socket = new Socket();
+                    socket.connect(new InetSocketAddress(ipv6Addr, Port), 5000);
 
-                // Now read the server response
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                String response;
-                while ((response = in.readLine()) != null) {
-                    lftuc_receivedMessages.add("Received: " + response);
-                    if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
-                        break;
-                    }else{
-                        filesInHere.add(response);
+                    BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+                    out.write(relativePath + "\n");
+                    out.flush();
+
+                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    String response;
+                    while ((response = in.readLine()) != null) {
+                        lftuc_receivedMessages.add("Received: " + response);
+                        if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
+                            break;
+                        } else {
+                            filesInHere.add(response);
+                        }
                     }
-                }
-                in.close();
-                out.close();
-                socket.close();
 
-            } catch (IOException e) {
-                lftuc_receivedMessages.add("Request error: " + e.getMessage());
+                    in.close();
+                    out.close();
+                    socket.close();
+
+                    callback.onResult(filesInHere); // ✅ callback when done
+
+                } catch (IOException e) {
+                    callback.onError("Request error: " + e.getMessage());
+                }
+            } else {
+                callback.onError("No Current Servers Found Yet!");
             }
-        } else {
-            lftuc_receivedMessages.add("No Current Servers Found Yet!");
-        }
-        return filesInHere;
+        }).start();
     }
 }
