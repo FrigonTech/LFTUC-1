@@ -597,7 +597,8 @@ public class lftuc_main_lib {
                         if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
                             break;
                         } else {
-                            filesInHere.add(response);
+                            String fileName = (response.contains("[DIR] "))? response.substring(6) : response.substring(7);
+                            filesInHere.add("");
                         }
                     }
 
