@@ -477,6 +477,7 @@ public class lftuc_main_lib {
         }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
     }
     //------------------------------------Handle LFTUC Client---------------------------------------
+
     private static void LFTUCHandleClient(Socket clientSocket, Boolean rootAccess) {
         try (
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -494,7 +495,7 @@ public class lftuc_main_lib {
                 String[] requestSplices = requestedPath.split("/");
                 List<String> requestSplicesStringList = new ArrayList<>(Arrays.asList(requestSplices));
                 Integer requestLastIndex = requestSplicesStringList.size() - 1; // Index of last element
-                String fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(7); // Remove "[FILE]" prefix
+                String fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(6); // Remove "[FILE]" prefix
                 requestSplicesStringList.remove(requestLastIndex);
                 requestSplicesStringList.add(fixedFileName);
                 newContentRequestedPath = String.join("/", requestSplicesStringList);
@@ -545,13 +546,25 @@ public class lftuc_main_lib {
                         FileInputStream fis = new FileInputStream(requestedFile);
                         byte[] buffer = new byte[4096];
                         int bytesRead;
+
+                        // Create a BufferedReader to listen for cancel message
+                        BufferedReader cancelCheck = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+
                         while ((bytesRead = fis.read(buffer)) != -1) {
+                            // 👀 Check if client sent a cancel message
+                            if (cancelCheck.ready()) {
+                                String cancelMessage = cancelCheck.readLine();
+                                if ("CANCEL FILE TRANSFER".equals(cancelMessage)) {
+                                    lftuc_receivedMessages.add("Client requested cancel. Stopping transfer.");
+                                    break;
+                                }
+                            }
                             dos.write(buffer, 0, bytesRead);
                         }
 
                         fis.close();
                         dos.flush(); // Make sure everything is sent
-                        lftuc_receivedMessages.add("File sent: " + requestedFile.getName());
+                        lftuc_receivedMessages.add("File sent (or transfer stopped): " + requestedFile.getName());
                     }
                 }
             } else {
@@ -617,8 +630,20 @@ public class lftuc_main_lib {
     //-------------------------------Client-Side Variables
     public String lftuc_manipulatedPath = Environment.getExternalStorageDirectory().toString()+"/.LFTUC-Shared";
     public static Thread clientThread;
+    public static Socket clientSocket = new Socket();
     public File lftuc_CurrentPath() {
         return new File(lftuc_manipulatedPath);
+    }
+    public static volatile boolean isDownloadCancelled = false;
+    public static void cancelFileDownload() {
+        try {
+            isDownloadCancelled = true;
+            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+            out.write("CANCEL FILE TRANSFER\n");
+            out.flush();
+        } catch (IOException e) {
+            Log.e("LFTUC", "Failed to cancel file download: " + e.getMessage());
+        }
     }
 
     public interface LFTUCFolderCallback {
@@ -631,111 +656,118 @@ public class lftuc_main_lib {
     public static void LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath, LFTUCFolderCallback callback) {
         new Thread(() -> {
             List<String> filesInHere = new ArrayList<>();
+            isDownloadCancelled = false;
 
-            if (lftuc_currentServers.size() > 0) {
-                try {
-                    // Connect to the server using IPv6 address
-                    InetAddress ipv6Addr = Inet6Address.getByName(ServerAddress);
-                    Socket socket = new Socket();
-                    socket.connect(new InetSocketAddress(ipv6Addr, Port), 5000);
-
-                    BufferedWriter out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                    out.write(relativePath + "\n");
-                    out.flush();
-
-                    // If not requesting file content, list folder contents
-                    if (!relativePath.contains("[FILE]")) {
-                        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                        String response;
-                        while ((response = in.readLine()) != null) {
-                            lftuc_receivedMessages.add("Received: " + response);
-
-                            // Check for end signals
-                            if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
-                                break;
-                            } else {
-                                // Extract file or directory name based on the type
-                                String fileName = (response.contains("[DIR] ")) ? response.substring(6) : response.substring(7);
-                                filesInHere.add(fileName);
-                            }
-                        }
-                        in.close(); // Close after processing all lines
-                    } else {
-
-                        InputStream dataIn = socket.getInputStream();
-                        DataInputStream dis = new DataInputStream(dataIn);
-
-                        // Define custom save location
-                        File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/Received");
-                        if (!lftucDir.exists()) {
-                            lftucDir.mkdirs();
-                        }
-
-                        // Get expected file size
-                        long fileSize = dis.readLong();
-                        String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
-
-                        // Handle name conflicts with extension preserved
-                        String baseName = fileName;
-                        String extension = "";
-                        int dotIndex = fileName.lastIndexOf('.');
-                        if (dotIndex > 0) {
-                            baseName = fileName.substring(0, dotIndex);
-                            extension = fileName.substring(dotIndex); // includes the dot
-                        }
-
-                        File targetFile = new File(lftucDir, "received_" + baseName + extension);
-                        int iteration = 1;
-                        while (targetFile.exists()) {
-                            targetFile = new File(lftucDir, "received_" + baseName + "(" + iteration + ")" + extension);
-                            iteration++;
-                        }
-
-                        // Save the received file
-                        try (FileOutputStream fos = new FileOutputStream(targetFile)) { //Java automatically closes fos on success
-                            byte[] buffer = new byte[4096];
-                            int read;
-                            long remaining = fileSize;
-                            long totalRead = 0;
-
-                            while ((read = dis.read(buffer, 0, (int) Math.min(buffer.length, remaining))) > 0) {
-                                fos.write(buffer, 0, read);
-                                remaining -= read;
-                                totalRead += read;
-
-                                int progress = (int) ((totalRead * 100) / fileSize);
-                                callback.onProgress(progress);
-
-                                if (remaining == 0) break;
-                            }
-
-                            // ✅ Notify success after completion
-                            callback.onDownloadComplete("File received and saved to: " + targetFile.getAbsolutePath());
-
-                        } catch (SocketTimeoutException e) {
-                            callback.onError("Timeout during file transfer");
-                        } catch (EOFException e) {
-                            callback.onError("Connection lost while receiving file");
-                        } catch (IOException e) {
-                            callback.onError("I/O error during file transfer: " + e.getMessage());
-                        }
-                    }
-
-                    out.close();
-                    socket.close();
-
-                    if (!relativePath.contains("[FILE]")) {
-                        // Only send result callback if it was a folder listing
-                        callback.onResult(filesInHere);
-                    }
-
-                } catch (IOException e) {
-                    // Handle any error and inform callback
-                    callback.onError("Request error: " + e.getMessage());
-                }
-            } else {
-                // Handle case where no servers are found
+            if (lftuc_currentServers.isEmpty()) {
                 callback.onError("No Current Servers Found Yet!");
+                return;
+            }
+
+            BufferedWriter out = null;
+            BufferedReader in = null;
+            DataInputStream dis = null;
+
+            try {
+                // Always create new socket if previous is closed
+                if (clientSocket == null || clientSocket.isClosed()) {
+                    clientSocket = new Socket();
+                }
+
+                InetAddress ipv6Addr = Inet6Address.getByName(ServerAddress);
+                clientSocket.connect(new InetSocketAddress(ipv6Addr, Port), 5000);
+
+                out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+                out.write(relativePath + "\n");
+                out.flush();
+
+                if (!relativePath.contains("[FILE]")) {
+                    // Folder listing
+                    in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    String response;
+                    while ((response = in.readLine()) != null) {
+                        lftuc_receivedMessages.add("Received: " + response);
+                        if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
+                            break;
+                        }
+
+                        String fileName = response.contains("[DIR] ")
+                                ? response.substring(6)
+                                : response.substring(7);
+                        filesInHere.add(fileName);
+                    }
+
+                    callback.onResult(filesInHere);
+                } else {
+                    // File download
+                    dis = new DataInputStream(clientSocket.getInputStream());
+
+                    long fileSize = dis.readLong();
+                    String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
+
+                    // Handle save path and duplicates
+                    File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/LFTUC-Received");
+                    if (!lftucDir.exists()) lftucDir.mkdirs();
+
+                    String baseName = fileName;
+                    String extension = "";
+                    int dotIndex = fileName.lastIndexOf('.');
+                    if (dotIndex > 0) {
+                        baseName = fileName.substring(0, dotIndex);
+                        extension = fileName.substring(dotIndex);
+                    }
+
+                    File targetFile = new File(lftucDir, "received_" + baseName + extension);
+                    int count = 1;
+                    while (targetFile.exists()) {
+                        targetFile = new File(lftucDir, "received_" + baseName + "(" + count + ")" + extension);
+                        count++;
+                    }
+
+                    try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+                        byte[] buffer = new byte[4096];
+                        int read;
+                        long remaining = fileSize;
+                        long totalRead = 0;
+
+                        while ((read = dis.read(buffer, 0, (int) Math.min(buffer.length, remaining))) > 0) {
+                            if (isDownloadCancelled) {
+                                fos.close(); // Just to be sure
+                                targetFile.delete();
+                                callback.onError("Download cancelled by user");
+                                lftuc_receivedMessages.add("Download was cancelled on client side.");
+                                return;
+                            }
+
+                            fos.write(buffer, 0, read);
+                            remaining -= read;
+                            totalRead += read;
+
+                            int progress = (int) ((totalRead * 100) / fileSize);
+                            callback.onProgress(progress);
+
+                            if (remaining == 0) break;
+                        }
+
+                        if (!isDownloadCancelled && remaining == 0) {
+                            callback.onDownloadComplete("File received and saved to: " + targetFile.getAbsolutePath());
+                        }
+
+                    } catch (IOException e) {
+                        callback.onError("File write error: " + e.getMessage());
+                    }
+                }
+
+            } catch (IOException e) {
+                callback.onError("Request error: " + e.getMessage());
+
+            } finally {
+                try { if (out != null) out.close(); } catch (Exception ignored) {}
+                try { if (in != null) in.close(); } catch (Exception ignored) {}
+                try { if (dis != null) dis.close(); } catch (Exception ignored) {}
+                try { if (clientSocket != null && !clientSocket.isClosed()) clientSocket.close(); } catch (Exception ignored) {}
+
+                // Keep it clean for the next round
+                isDownloadCancelled = false;
             }
         }).start();
     }
