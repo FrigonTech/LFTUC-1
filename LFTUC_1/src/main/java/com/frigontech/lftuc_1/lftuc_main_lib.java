@@ -692,7 +692,7 @@ public class lftuc_main_lib {
                         }
 
                         // Save the received file
-                        try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+                        try (FileOutputStream fos = new FileOutputStream(targetFile)) { //Java automatically closes fos on success
                             byte[] buffer = new byte[4096];
                             int read;
                             long remaining = fileSize;
@@ -708,6 +708,10 @@ public class lftuc_main_lib {
 
                                 if (remaining == 0) break;
                             }
+
+                            // ✅ Notify success after completion
+                            callback.onDownloadComplete("File received and saved to: " + targetFile.getAbsolutePath());
+
                         } catch (SocketTimeoutException e) {
                             callback.onError("Timeout during file transfer");
                         } catch (EOFException e) {
