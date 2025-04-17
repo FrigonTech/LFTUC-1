@@ -488,28 +488,78 @@ public class lftuc_main_lib {
             String requestedPath = in.readLine(); // could be "" or "SubFolder"
             if (requestedPath == null) requestedPath = "";
 
+            Boolean isRequestingFileContent = requestedPath.contains("[FILE]");
+            String newContentRequestedPath = "";
+            if (isRequestingFileContent) {
+                String[] requestSplices = requestedPath.split("/");
+                List<String> requestSplicesStringList = new ArrayList<>(Arrays.asList(requestSplices));
+                Integer requestLastIndex = requestSplicesStringList.size() - 1; // Index of last element
+                String fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(7); // Remove "[FILE]" prefix
+                requestSplicesStringList.remove(requestLastIndex);
+                requestSplicesStringList.add(fixedFileName);
+                newContentRequestedPath = String.join("/", requestSplicesStringList);
+            }
+
             // Build the full path under shared directory
-            File initialDir = (rootAccess)? lftuc_RootDir : lftuc_SharedDir;
+            File initialDir = (rootAccess) ? lftuc_RootDir : lftuc_SharedDir;
             File targetDir = new File(initialDir, requestedPath);
+
             lftuc_receivedMessages.add("Requested folder: " + targetDir.getAbsolutePath());
 
             if (targetDir.exists() && targetDir.isDirectory()) {
-                File[] files = targetDir.listFiles();
-                lftuc_receivedMessages.add("LFTUC*FOLDERSTART*");
-                if (files != null) {
+                if (!isRequestingFileContent) {
+                    File[] files = targetDir.listFiles();
+                    lftuc_receivedMessages.add("LFTUC*FOLDERSTART*");
                     for (File file : files) {
-                        String fileEntry = (file.isDirectory() ? "[DIR] " : "[FILE] ") + file.getName();
-                        out.write(fileEntry + "\n"); // ← Send to client
-                        lftuc_receivedMessages.add(fileEntry); // ← Optional logging
+                        String fileName = file.getName();
+                        String absolutePath = file.getAbsolutePath();
+                        String canonicalName = file.getCanonicalFile().getName();
+                        lftuc_receivedMessages.add("raw_name: " + fileName);
+                        lftuc_receivedMessages.add("absolute_path: " + absolutePath);
+                        lftuc_receivedMessages.add("canonical_name: " + canonicalName);
+                        String fileEntry;
+                        if (file.isDirectory()) {
+                            fileEntry = "[DIR] " + fileName;
+                        } else {
+                            fileEntry = "[FILE] " + fileName; // Use fileName as-is
+                        }
+                        lftuc_receivedMessages.add("preparing: " + fileEntry);
+                        out.write(fileEntry + "\n");
+                        lftuc_receivedMessages.add("sent: " + fileEntry);
+                    }
+                    out.write("LFTUC*FOLDEREND*\n"); // End signal
+                    lftuc_receivedMessages.add("LFTUC*FOLDEREND*");
+                } else {
+                    // Send file content
+                    File requestedFile = new File(newContentRequestedPath);
+                    if (requestedFile.isFile()) {
+                        // Send file size first
+                        long fileSize = requestedFile.length(); // Use requestedFile here
+                        OutputStream dataOut = clientSocket.getOutputStream();
+                        DataOutputStream dos = new DataOutputStream(dataOut);
+
+                        dos.writeLong(fileSize); // Write the file size first
+                        lftuc_receivedMessages.add("Sending file: " + requestedFile.getName() + " with size: " + fileSize + " bytes.");
+
+                        // Now send the file content in chunks
+                        FileInputStream fis = new FileInputStream(requestedFile);
+                        byte[] buffer = new byte[4096];
+                        int bytesRead;
+                        while ((bytesRead = fis.read(buffer)) != -1) {
+                            dos.write(buffer, 0, bytesRead);
+                        }
+
+                        fis.close();
+                        dos.flush(); // Make sure everything is sent
+                        lftuc_receivedMessages.add("File sent: " + requestedFile.getName());
                     }
                 }
-                out.write("LFTUC*FOLDEREND*\n"); // ← End signal
-                lftuc_receivedMessages.add("LFTUC*FOLDEREND*");
             } else {
                 lftuc_receivedMessages.add("LFTUC*ERROR* Invalid path\n");
+                out.write("LFTUC*ERROR* Invalid path\n"); // Inform client of error
             }
 
-            out.flush();
+            out.flush(); // Flush writer to ensure all data is sent
             clientSocket.close();
 
         } catch (IOException e) {
@@ -574,6 +624,8 @@ public class lftuc_main_lib {
     public interface LFTUCFolderCallback {
         void onResult(List<String> files);
         void onError(String errorMessage);
+        void onProgress(int progress);  // Added progress callback
+        void onDownloadComplete(String downloadCompleteMessage);
     }
 
     public static void LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath, LFTUCFolderCallback callback) {
@@ -582,6 +634,7 @@ public class lftuc_main_lib {
 
             if (lftuc_currentServers.size() > 0) {
                 try {
+                    // Connect to the server using IPv6 address
                     InetAddress ipv6Addr = Inet6Address.getByName(ServerAddress);
                     Socket socket = new Socket();
                     socket.connect(new InetSocketAddress(ipv6Addr, Port), 5000);
@@ -590,28 +643,94 @@ public class lftuc_main_lib {
                     out.write(relativePath + "\n");
                     out.flush();
 
-                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    String response;
-                    while ((response = in.readLine()) != null) {
-                        lftuc_receivedMessages.add("Received: " + response);
-                        if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
-                            break;
-                        } else {
-                            String fileName = (response.contains("[DIR] "))? response.substring(6) : response.substring(7);
-                            filesInHere.add(fileName);
+                    // If not requesting file content, list folder contents
+                    if (!relativePath.contains("[FILE]")) {
+                        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                        String response;
+                        while ((response = in.readLine()) != null) {
+                            lftuc_receivedMessages.add("Received: " + response);
+
+                            // Check for end signals
+                            if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
+                                break;
+                            } else {
+                                // Extract file or directory name based on the type
+                                String fileName = (response.contains("[DIR] ")) ? response.substring(6) : response.substring(7);
+                                filesInHere.add(fileName);
+                            }
+                        }
+                        in.close(); // Close after processing all lines
+                    } else {
+
+                        InputStream dataIn = socket.getInputStream();
+                        DataInputStream dis = new DataInputStream(dataIn);
+
+                        // Define custom save location
+                        File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/Received");
+                        if (!lftucDir.exists()) {
+                            lftucDir.mkdirs();
+                        }
+
+                        // Get expected file size
+                        long fileSize = dis.readLong();
+                        String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
+
+                        // Handle name conflicts with extension preserved
+                        String baseName = fileName;
+                        String extension = "";
+                        int dotIndex = fileName.lastIndexOf('.');
+                        if (dotIndex > 0) {
+                            baseName = fileName.substring(0, dotIndex);
+                            extension = fileName.substring(dotIndex); // includes the dot
+                        }
+
+                        File targetFile = new File(lftucDir, "received_" + baseName + extension);
+                        int iteration = 1;
+                        while (targetFile.exists()) {
+                            targetFile = new File(lftucDir, "received_" + baseName + "(" + iteration + ")" + extension);
+                            iteration++;
+                        }
+
+                        // Save the received file
+                        try (FileOutputStream fos = new FileOutputStream(targetFile)) {
+                            byte[] buffer = new byte[4096];
+                            int read;
+                            long remaining = fileSize;
+                            long totalRead = 0;
+
+                            while ((read = dis.read(buffer, 0, (int) Math.min(buffer.length, remaining))) > 0) {
+                                fos.write(buffer, 0, read);
+                                remaining -= read;
+                                totalRead += read;
+
+                                int progress = (int) ((totalRead * 100) / fileSize);
+                                callback.onProgress(progress);
+
+                                if (remaining == 0) break;
+                            }
+                        } catch (SocketTimeoutException e) {
+                            callback.onError("Timeout during file transfer");
+                        } catch (EOFException e) {
+                            callback.onError("Connection lost while receiving file");
+                        } catch (IOException e) {
+                            callback.onError("I/O error during file transfer: " + e.getMessage());
                         }
                     }
 
-                    in.close();
                     out.close();
                     socket.close();
 
-                    callback.onResult(filesInHere); // ✅ callback when done
+                    if (!relativePath.contains("[FILE]")) {
+                        // Only send result callback if it was a folder listing
+                        callback.onResult(filesInHere);
+                    }
 
                 } catch (IOException e) {
+                    // Handle any error and inform callback
                     callback.onError("Request error: " + e.getMessage());
                 }
             } else {
+                // Handle case where no servers are found
                 callback.onError("No Current Servers Found Yet!");
             }
         }).start();

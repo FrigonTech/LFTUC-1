@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -40,6 +41,7 @@ import com.frigontech.lftuc_1.lftuc_main_lib.*
 import com.frigontech.myapplication.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
@@ -87,14 +89,31 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
             startLFTUCMulticastListener(context, "239.255.255.250", 8080)
             startLFTUCMulticastEcho(1, "VIVO", lftuc_getLinkLocalIPv6Address(), 8080, 1, "239.255.255.250")
             startLFTUCServer(context)
-
-            stopLFTUCMulticastEcho()
             lftuc_receivedMessages.add("***server Status before delay: "+serverRunning.get())
             // Wait a moment for server to initialize
             delay(3500)
             lftuc_receivedMessages.add("***server Status after delay: "+serverRunning.get())
             // Now call requestFile, also in background thread
-            LFTUCRequestSharedFolder()// used like as in this name, because inclusion in the module but right now being tested
+            LFTUCRequestSharedFolder(lftuc_getLinkLocalIPv6Address(), 8080, "shared games",
+                object : LFTUCFolderCallback {
+                    override fun onResult(files: List<String>) {
+                        lftuc_receivedMessages.add("success requesting...")
+                    }
+
+                    override fun onError(errorMessage: String) {
+                        lftuc_receivedMessages.add("failed request...")
+                    }
+
+                    override fun onProgress(progress: Int) {
+                        TODO("Not yet implemented")
+                    }
+
+                    override fun onDownloadComplete(downloadCompleteMessage: String?) {
+                        TODO("Not yet implemented")
+                    }
+                }
+            )
+            // used like as in this name, because inclusion in the module but right now being tested
             lftuc_receivedMessages.add("***server Status after request: "+serverRunning.get())
         }
 
