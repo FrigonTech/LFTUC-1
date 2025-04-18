@@ -700,6 +700,7 @@ public class lftuc_main_lib {
                 } else {
                     // File download
                     dis = new DataInputStream(clientSocket.getInputStream());
+                    Log.d("File Download", "file download request detected");
 
                     long fileSize = dis.readLong();
                     String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
@@ -717,9 +718,11 @@ public class lftuc_main_lib {
                     }
 
                     File targetFile = new File(lftucDir, "received_" + baseName + extension);
+                    Log.d("File Download", "File Received from server: "+baseName+"."+extension);
                     int count = 1;
                     while (targetFile.exists()) {
                         targetFile = new File(lftucDir, "received_" + baseName + "(" + count + ")" + extension);
+                        Log.d("REceived File Save Name: ", "name = "+targetFile);
                         count++;
                     }
 
@@ -735,6 +738,7 @@ public class lftuc_main_lib {
                                 targetFile.delete();
                                 callback.onError("Download cancelled by user");
                                 lftuc_receivedMessages.add("Download was cancelled on client side.");
+                                Log.d("Download Manager", "download cancelled");
                                 return;
                             }
 
