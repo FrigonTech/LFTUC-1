@@ -629,10 +629,26 @@ public class lftuc_main_lib {
         }
     }
 
+    // Helper method to convert file size
+    private static String convertFileSize(long fileSizeInBytes) {
+        if (fileSizeInBytes < 1024) {
+            return fileSizeInBytes + " B"; // Bytes
+        } else if (fileSizeInBytes < 1024 * 1024) {
+            return String.format("%.2f kB", fileSizeInBytes / 1024.0); // Kilobytes
+        } else if (fileSizeInBytes < 1024 * 1024 * 1024) {
+            return String.format("%.2f MB", fileSizeInBytes / (1024.0 * 1024)); // Megabytes
+        } else if (fileSizeInBytes < 1024L * 1024 * 1024 * 1024) {
+            return String.format("%.2f GB", fileSizeInBytes / (1024.0 * 1024 * 1024)); // Gigabytes
+        } else {
+            return String.format("%.2f TB", fileSizeInBytes / (1024.0 * 1024 * 1024 * 1024)); // Terabytes
+        }
+    }
+
     public interface LFTUCFolderCallback {
         void onResult(List<String> files);
         void onError(String errorMessage);
         void onProgress(int progress);  // Added progress callback
+        void onGotFileSize(String fileSize); // in adjusted file size notation (b (bits) in its range, B (bytes) in its range, kb (kilobits) in its range, kB (kilo bytes) in its range, Gb (giga bits) for its range, GB (giga bytes) in its range)
         void onDownloadComplete(String downloadCompleteMessage);
     }
 
@@ -692,7 +708,11 @@ public class lftuc_main_lib {
                         callback.onError("File doesn't exist on the server.");
                         Log.e("File Download", "Server responded with fileSize = -1. File doesn't exist.");
                         return;
+                    }else{
+                        String formattedFileSize = convertFileSize(fileSize);
+                        callback.onGotFileSize(formattedFileSize);
                     }
+
                     String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
 
                     // Handle save path and duplicates
