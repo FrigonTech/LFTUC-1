@@ -719,7 +719,9 @@ public class lftuc_main_lib {
                     File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/LFTUC-Received");
                     if (!lftucDir.exists()) lftucDir.mkdirs();
 
+                    Log.d("Client Side", "basename before substring: "+fileName);
                     String baseName = fileName.substring(6);
+                    Log.d("Client Side", "basename after substring: "+baseName);
                     String extension = "";
                     int dotIndex = fileName.lastIndexOf('.');
                     if (dotIndex > 0) {
