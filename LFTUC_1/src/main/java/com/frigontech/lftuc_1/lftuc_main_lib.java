@@ -267,6 +267,11 @@ public class lftuc_main_lib {
                 while (!Thread.currentThread().isInterrupted()) {
                     Log.d("MulticastReceiver", "Waiting for multicast packet...");
                     lftuc_receivedMessages.add("Waiting for multicast packet...");
+
+                    if (multicastSocket.isClosed()) {
+                        break;  // Exit if the socket is closed
+                    }
+
                     multicastSocket.receive(packet);  // BLOCKING CALL
 
                     String message = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
@@ -287,11 +292,12 @@ public class lftuc_main_lib {
         multicastThread.start();
     }
 
+
     //------------------------------Function to stop the listener-----------------------------------
     public static void stopLFTUCMulticastListener() {
         try {
             if (multicastThread != null) {
-                multicastThread.interrupt();  // Stop the thread
+                multicastThread.interrupt();  // Interrupt the thread, ensuring it stops waiting on receive
                 multicastThread = null;
             }
 
@@ -312,6 +318,7 @@ public class lftuc_main_lib {
             lftuc_receivedMessages.add("Error stopping multicast listener: " + e.getMessage());
         }
     }
+
 
     //---------------------------------------ECHO VARIABLES-----------------------------------------
     private static Thread multicastEchoThread;
@@ -719,9 +726,7 @@ public class lftuc_main_lib {
                     File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/LFTUC-Received");
                     if (!lftucDir.exists()) lftucDir.mkdirs();
 
-                    Log.d("Client Side", "basename before substring: "+fileName);
-                    String baseName = fileName.substring(6);
-                    Log.d("Client Side", "basename after substring: "+baseName);
+                    String baseName = fileName;
                     String extension = "";
                     int dotIndex = fileName.lastIndexOf('.');
                     if (dotIndex > 0) {
@@ -729,7 +734,7 @@ public class lftuc_main_lib {
                         extension = fileName.substring(dotIndex);
                     }
 
-                    File targetFile = new File(lftucDir, baseName + extension);
+                    File targetFile = new File(lftucDir, baseName.substring(6) + extension);
                     Log.d("File Download", "File Received from server: "+baseName+extension);
                     int count = 1;
                     while (targetFile.exists()) {
