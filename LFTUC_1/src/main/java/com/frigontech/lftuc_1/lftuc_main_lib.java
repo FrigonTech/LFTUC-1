@@ -520,12 +520,15 @@ public class lftuc_main_lib {
                 out.write("LFTUC*FOLDEREND*\n");
                 out.flush();
             } else if (isRequestingFileContent) {
+                Log.d("Handler Side", "Requested Path: "+newContentRequestedPath);
                 File requestedFile = new File(newContentRequestedPath);
                 if (requestedFile.isFile()) {
                     DataOutputStream dos = new DataOutputStream(outputStream);
                     FileInputStream fis = new FileInputStream(requestedFile);
+                    Log.d("Handler Side", "Requested File Found: "+newContentRequestedPath);
 
                     long fileSize = requestedFile.length();
+                    Log.d("Handler Side", "REquested File size on server: "+fileSize);
                     dos.writeLong(fileSize); // ✅ This is what the client expects first!
                     lftuc_receivedMessages.add("Sending file: " + requestedFile.getName() + " (" + fileSize + " bytes)");
 
