@@ -94,7 +94,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
             delay(3500)
             lftuc_receivedMessages.add("***server Status after delay: "+serverRunning.get())
             // Now call requestFile, also in background thread
-            LFTUCRequestSharedFolder(lftuc_getLinkLocalIPv6Address(), 8080, "shared games/[FILE]game names.txt",
+            LFTUCRequestSharedFolder(lftuc_getLinkLocalIPv6Address(), 8080, "stress test/[FILE]Adobe Premiere Pro 2021 v15.4.1.6 (x64) Multilingual.7z",
                 object : LFTUCFolderCallback {
                     override fun onResult(files: List<String>) {
                         //lftuc_receivedMessages.add("success requesting...")
@@ -105,7 +105,14 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
                     }
 
                     override fun onProgress(progress: Int) {
-                        lftuc_receivedMessages.add("Download progress: $progress%")
+                        val progress = "$progress"
+                        if(!lftuc_receivedMessages.contains(progress)){
+                            lftuc_receivedMessages.add("$progress")
+                        }
+                    }
+
+                    override fun onGotFileSize(fileSize: String) {
+                        lftuc_receivedMessages.add("File Size: $fileSize")
                     }
 
                     override fun onDownloadComplete(downloadCompleteMessage: String?) {
@@ -113,6 +120,9 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
                     }
                 }
             )
+
+            delay(1000)
+            cancelFileDownload()
             // used like as in this name, because inclusion in the module but right now being tested
             lftuc_receivedMessages.add("***server Status after request: "+serverRunning.get())
         }

@@ -99,7 +99,6 @@ public class lftuc_main_lib {
                 }
             }
         } catch (Exception e) {
-            Log.e("LFTUC", "Exception in getting IPv6 address: " + e.getMessage(), e);
         }
         return null; // Return null, not "null" string
     }
@@ -184,7 +183,6 @@ public class lftuc_main_lib {
     //------------------------------------Parse LFTUC Payload---------------------------------------
     private static void ParseLFTUCPayload(String Payload){
         List<String> PayloadParts = Arrays.asList(Payload.split("\\*")); // we need 2 backslashes to tell regex to treat '*' literally
-        lftuc_receivedMessages.add(PayloadParts.toString());
         try{
             // check is address code is something from the structure, need a better way in the future
             //check is the server is online and add server in the server list --"currentLFTUCServers"--
@@ -195,7 +193,6 @@ public class lftuc_main_lib {
                     synchronized (lftuc_currentServers){
                         lftuc_currentServers.removeIf(server-> server.ServerAddress.equals(IPAddress));
                     };
-                    lftuc_receivedMessages.add("removed IP Address: "+IPAddress);
                     break;
 
                 case "1":
@@ -208,8 +205,6 @@ public class lftuc_main_lib {
                                 Integer.parseInt(PayloadParts.get(3)),
                                 Integer.parseInt(PayloadParts.get(4))
                         ));
-                        lftuc_receivedMessages.add("added IP Address: "+PayloadParts.get(2));
-                        Log.d("LFTUC", lftuc_currentServers.toString());
                     }
                     break;
 
@@ -221,8 +216,6 @@ public class lftuc_main_lib {
         }
         catch(Exception e){
             System.err.println(e.getMessage());
-            lftuc_receivedMessages.add(e.getMessage());
-            lftuc_receivedMessages.add(PayloadParts.get(4));
         }
     }
 
@@ -233,40 +226,31 @@ public class lftuc_main_lib {
 
         multicastThread = new Thread(() -> {
             try {
-                Log.d("MulticastReceiver", "Acquiring multicast lock...");
+                
                 multicastLock.acquire();
-                lftuc_receivedMessages.add("Acquiring multicast lock...");
 
-                Log.d("MulticastReceiver", "Creating MulticastSocket on port " + port);
                 multicastSocket = new MulticastSocket(port);
                 multicastSocket.setReuseAddress(true);
-                lftuc_receivedMessages.add("Creating MulticastSocket on port " + port);
 
                 InetAddress group = InetAddress.getByName(multicastGroup);
                 InetSocketAddress groupSocketAddress = new InetSocketAddress(group, port);
 
-                Log.d("MulticastReceiver", "Getting Network Interface...");
-                lftuc_receivedMessages.add("Getting Network Interface...");
+                
                 NetworkInterface networkInterface = NetworkInterface.getByName("wlan0");
 
                 if (networkInterface == null) {
-                    Log.e("MulticastReceiver", "Network Interface wlan0 not found!");
-                    lftuc_receivedMessages.add("Network Interface wlan0 not found!");
+                    
                     return;
                 }
 
-                Log.d("MulticastReceiver", "Joining multicast group " + multicastGroup);
-                lftuc_receivedMessages.add("Joining multicast group " + multicastGroup);
                 multicastSocket.joinGroup(groupSocketAddress, networkInterface);
-                Log.d("MulticastReceiver", "Successfully joined group! Listening for packets...");
-                lftuc_receivedMessages.add("Successfully joined group! Listening for packets...");
+                
 
                 byte[] buffer = new byte[1024];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
                 while (!Thread.currentThread().isInterrupted()) {
-                    Log.d("MulticastReceiver", "Waiting for multicast packet...");
-                    lftuc_receivedMessages.add("Waiting for multicast packet...");
+                    
 
                     if (multicastSocket.isClosed()) {
                         break;  // Exit if the socket is closed
@@ -275,15 +259,12 @@ public class lftuc_main_lib {
                     multicastSocket.receive(packet);  // BLOCKING CALL
 
                     String message = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
-                    Log.d("MulticastReceiver", "Multicast Received: " + message);
+
                     ParseLFTUCPayload(message);
-                    lftuc_receivedMessages.add(message);
 
                     packet.setLength(buffer.length); // Reset packet length
                 }
             } catch (IOException e) {
-                Log.e("MulticastReceiver", "Multicast Error: " + e.getMessage(), e);
-                lftuc_receivedMessages.add("Multicast Error: " + e.getMessage());
             } finally {
                 stopLFTUCMulticastListener(); // Cleanup on exit
             }
@@ -302,20 +283,16 @@ public class lftuc_main_lib {
             }
 
             if (multicastSocket != null && !multicastSocket.isClosed()) {
-                Log.d("MulticastReceiver", "Leaving multicast group...");
-                lftuc_receivedMessages.add("Leaving multicast group...");
+                
                 multicastSocket.close();  // Closing the socket unblocks the receive call
                 multicastSocket = null;
             }
 
             if (multicastLock != null && multicastLock.isHeld()) {
-                Log.d("MulticastReceiver", "Releasing multicast lock...");
-                lftuc_receivedMessages.add("Releasing multicast lock...");
+                
                 multicastLock.release();
             }
         } catch (Exception e) {
-            Log.e("MulticastReceiver", "Error stopping multicast listener: " + e.getMessage(), e);
-            lftuc_receivedMessages.add("Error stopping multicast listener: " + e.getMessage());
         }
     }
 
@@ -331,11 +308,9 @@ public class lftuc_main_lib {
     }
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus, String multicastGroup) {
         if(IPAddress.isBlank()){
-            lftuc_receivedMessages.add("Invalid IP Address: "+IPAddress);
             return;
         }
         if (isEchoing) {
-            lftuc_receivedMessages.add("MulticastEcho : Multicast echo is already running!");
             return;
         }
         isEchoing = true;
@@ -363,8 +338,6 @@ public class lftuc_main_lib {
                     String numberedMessage = lftuc_payload + " - Message " + messageCounter++;
                     byte[] data = lftuc_payload.getBytes(StandardCharsets.UTF_8);
                     packet = new DatagramPacket(data, data.length, group, port);
-                    Log.d("MulticastEcho:", "Sending multicast message: " + lftuc_payload);
-                    lftuc_receivedMessages.add("MulticastEcho: Sending multicast message: "+numberedMessage);
                     socket.send(packet);
                     Thread.sleep(2000);  // Wait 2 seconds before sending again
                 }
@@ -375,11 +348,8 @@ public class lftuc_main_lib {
                 socket.send(packet);
                 deadEchoPacketSent = true;
             } catch (IOException e) {
-                lftuc_receivedMessages.add("MulticastEcho: Error in multicast echo: " + e.getMessage());
-                Log.e("MulticastEcho", "Error: " + e.getMessage(), e);
             } catch (InterruptedException e) {
-                lftuc_receivedMessages.add("MulticastEcho: Thread interrupted");
-                Log.d("MulticastEcho", "Thread interrupted");
+
                 isEchoing = false;
             } finally {
                 if (socket != null && !socket.isClosed()) {
@@ -402,7 +372,6 @@ public class lftuc_main_lib {
                 }
             }
         }
-        lftuc_receivedMessages.add("MulticastEcho : Multicast echo stopped.");
     }
     //-------------------------------------START LFTUC Server---------------------------------------
     //-------------------------------------Server-Side Variables
@@ -421,16 +390,14 @@ public class lftuc_main_lib {
     }
     public static void startLFTUCServer(Context context, Boolean rootAccess) {
         if(serverRunning.get()){
-            lftuc_receivedMessages.add("LFTUC SERVER IS ALREADY RUNNING!");
-            Log.d("Server:", "already running.");
+
             return;
         }
         serverThread = new Thread(() -> {
             try {
                 String ipv6Address = lftuc_getLinkLocalIPv6Address();
                 if (ipv6Address == null) {
-                    lftuc_receivedMessages.add("Error: Could not find a valid IPv6 link-local address");
-                    Log.d("Server:", "couldn't fina a valid ipv6 address.");
+
                     serverRunning.set(false);
                     return;
                 }
@@ -441,20 +408,16 @@ public class lftuc_main_lib {
                 serverSocket = new ServerSocket();
                 // Bind to the IPv6 address and port 8080
                 serverSocket.bind(new InetSocketAddress(ipv6Addr, 8080));
-                lftuc_receivedMessages.add("LFTUC SERVER STARTED\nlftuc://" + ipv6Addr.getHostAddress() + ":8080");
                 File sharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-                    lftuc_receivedMessages.add("no write permission");
                     return;
                 }
                 serverRunning.set(true);
-                Log.d("Server:", "serverRunning.get() = true");
+                
 
                 if (!sharedDir.exists()) {
                     sharedDir.mkdirs(); // use mkdirs() for nested paths
-                    lftuc_receivedMessages.add("Created directory: " + sharedDir.getAbsolutePath());
                 }else{
-                    lftuc_receivedMessages.add("Directory already exists: " + sharedDir.getAbsolutePath());
                 }
 
                 // Server is now live, serve the file to any connecting client
@@ -464,9 +427,8 @@ public class lftuc_main_lib {
                 }
 
             } catch (IOException e) {
-                lftuc_receivedMessages.add("Server error: " + e.getMessage());
                 serverRunning.set(false);
-                Log.d("Server:", "serverRunning.get() = false");
+                
             }
         });
 
@@ -477,9 +439,8 @@ public class lftuc_main_lib {
         try{
             if(serverSocket != null && !serverSocket.isClosed()){
                 serverSocket.close();
-                lftuc_receivedMessages.add("LFTUC SERVER STOPPED!");
                 serverRunning.set(false);
-                Log.d("Server:", "serverRunning.get() = false");
+                
             }
         }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
     }
@@ -487,7 +448,6 @@ public class lftuc_main_lib {
 
     private static void LFTUCHandleClient(Socket clientSocket, Boolean rootAccess) {
         try {
-            lftuc_receivedMessages.add("Client connected from " + clientSocket.getInetAddress());
 
             InputStream inputStream = clientSocket.getInputStream();
             OutputStream outputStream = clientSocket.getOutputStream();
@@ -504,7 +464,6 @@ public class lftuc_main_lib {
             if (isRequestingFileContent) {
                 String[] requestSplices = requestedPath.split("/");
                 List<String> requestSplicesStringList = new ArrayList<>(Arrays.asList(requestSplices));
-                Log.d("Handler Side", requestSplicesStringList.toString());
                 int requestLastIndex = requestSplicesStringList.size() - 1;
                 String fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(6);
                 requestSplicesStringList.set(requestLastIndex, fixedFileName);
@@ -514,31 +473,24 @@ public class lftuc_main_lib {
             File initialDir = rootAccess ? lftuc_RootDir : lftuc_SharedDir;
             File targetDir = new File(initialDir, requestedPath);
 
-            lftuc_receivedMessages.add("Requested folder: " + targetDir.getAbsolutePath());
 
             if (targetDir.exists() && targetDir.isDirectory() && !isRequestingFileContent) {
                 File[] files = targetDir.listFiles();
-                lftuc_receivedMessages.add("LFTUC*FOLDERSTART*");
                 for (File file : files) {
                     String fileEntry = file.isDirectory() ? "[DIR] " : "[FILE] ";
                     fileEntry += file.getName();
-                    lftuc_receivedMessages.add("Sending folder entry: " + fileEntry);
                     out.write(fileEntry + "\n");
                 }
                 out.write("LFTUC*FOLDEREND*\n");
                 out.flush();
             } else if (isRequestingFileContent) {
-                Log.d("Handler Side", "Requested Path: "+newContentRequestedPath);
                 File requestedFile = new File("/storage/emulated/0/.LFTUC-Shared", newContentRequestedPath);// hardcode the server files path (its default)
                 DataOutputStream dos = new DataOutputStream(outputStream);
                 if (requestedFile.isFile()) {
                     FileInputStream fis = new FileInputStream(requestedFile);
-                    Log.d("Handler Side", "Requested File Found: "+newContentRequestedPath);
 
                     long fileSize = requestedFile.length();
-                    Log.d("Handler Side", "REquested File size on server: "+fileSize);
                     dos.writeLong(fileSize); // ✅ This is what the client expects first!
-                    lftuc_receivedMessages.add("Sending file: " + requestedFile.getName() + " (" + fileSize + " bytes)");
 
                     byte[] buffer = new byte[4096];
                     int bytesRead;
@@ -550,7 +502,6 @@ public class lftuc_main_lib {
                     fis.close();
                     dos.flush(); // Ensure all data is sent
                     dos.close();
-                    lftuc_receivedMessages.add("File transfer completed: " + requestedFile.getName());
                     out.flush();
                 }else{
                     dos.writeLong(-1L);  // Special flag: file doesn't exist
@@ -566,7 +517,6 @@ public class lftuc_main_lib {
             clientSocket.close();
 
         } catch (IOException e) {
-            lftuc_receivedMessages.add("Client error: " + e.getMessage());
         }
     }
     //-------------------------------Map folder to LFTUC server-------------------------------------
@@ -588,7 +538,6 @@ public class lftuc_main_lib {
         File destObject = new File(lftuc_SharedDir, sourceObject.getName());
 
         if(!sourceObject.exists()){
-            lftuc_receivedMessages.add("source file or folder doesn't exist");
             return false;
         }
         String sourceType = sourceObject.isDirectory()? "Folder" : "File";
@@ -600,18 +549,14 @@ public class lftuc_main_lib {
             if(replaceObject) destObject.delete(); else return false;
 
             if(sourceObject.renameTo(destObject)) {
-                lftuc_receivedMessages.add(sourceType + " moved...");
                 return true;
             } else {
-                lftuc_receivedMessages.add("can't move " + sourceType + "...");
                 return false;
             }
         }else{
             if(sourceObject.renameTo(destObject)) {
-                lftuc_receivedMessages.add(sourceType + " moved...");
                 return true;
             } else {
-                lftuc_receivedMessages.add("can't move " + sourceType + "...");
                 return false;
             }
         }
@@ -626,15 +571,21 @@ public class lftuc_main_lib {
     }
     public static volatile boolean isDownloadCancelled = false;
     public static void cancelFileDownload() {
-        try {
-            isDownloadCancelled = true;
-            BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
-            out.write("CANCEL FILE TRANSFER\n");
-            out.flush();
-        } catch (IOException e) {
-            Log.e("LFTUC", "Failed to cancel file download: " + e.getMessage());
-        }
+        // Run cancel logic in a background thread
+        new Thread(() -> {
+            try {
+                isDownloadCancelled = true;
+                BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+                out.write("CANCEL FILE TRANSFER\n");
+                out.flush();
+                lftuc_receivedMessages.add("File Download Cancelled");
+                
+            } catch (IOException e) {
+                lftuc_receivedMessages.add("File Download Not Cancelled");
+            }
+        }).start();
     }
+
 
     // Helper method to convert file size
     private static String convertFileSize(long fileSizeInBytes) {
@@ -691,7 +642,6 @@ public class lftuc_main_lib {
                     in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                     String response;
                     while ((response = in.readLine()) != null) {
-                        lftuc_receivedMessages.add("Received: " + response);
                         if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
                             break;
                         }
@@ -706,14 +656,14 @@ public class lftuc_main_lib {
                 } else {
                     // File download
                     dis = new DataInputStream(clientSocket.getInputStream());
-                    Log.d("File Download", "file download request detected");
+                    
 
                     long fileSize = dis.readLong();
 
                     // 🚨 Check if file doesn't exist
                     if (fileSize == -1L) {
                         callback.onError("File doesn't exist on the server.");
-                        Log.e("File Download", "Server responded with fileSize = -1. File doesn't exist.");
+                        
                         return;
                     }else{
                         String formattedFileSize = convertFileSize(fileSize);
@@ -735,11 +685,9 @@ public class lftuc_main_lib {
                     }
 
                     File targetFile = new File(lftucDir, baseName.substring(6) + extension);
-                    Log.d("File Download", "File Received from server: "+baseName+extension);
                     int count = 1;
                     while (targetFile.exists()) {
                         targetFile = new File(lftucDir, "received_" + baseName + "(" + count + ")" + extension);
-                        Log.d("REceived File Save Name: ", "name = "+targetFile);
                         count++;
                     }
 
@@ -750,14 +698,13 @@ public class lftuc_main_lib {
                         long totalRead = 0;
 
                         while ((read = dis.read(buffer, 0, (int) Math.min(buffer.length, remaining))) > 0) {
-                            Log.d("File Download Content Loop", "FIle REad Loop Closed");
-                            Log.d("FileDownload", "Read " + read + " bytes");
+                            
+                            
                             if (isDownloadCancelled) {
                                 fos.close(); // Just to be sure
                                 targetFile.delete();
                                 callback.onError("Download cancelled by user");
-                                lftuc_receivedMessages.add("Download was cancelled on client side.");
-                                Log.d("Download Manager", "download cancelled");
+
                                 return;
                             }
 
@@ -767,9 +714,8 @@ public class lftuc_main_lib {
 
                             int progress = (int) ((totalRead * 100) / fileSize);
                             callback.onProgress(progress);
-                            Log.d("download Progress", totalRead +" * 100/"+ fileSize+ "=" + String.valueOf(progress));
 
-                            Log.d("File Download Content Loop", "FIle REad Loop Closed");
+                            
                             if (remaining == 0) break;
                         }
 
