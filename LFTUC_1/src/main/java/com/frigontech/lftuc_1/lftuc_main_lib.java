@@ -744,6 +744,7 @@ public class lftuc_main_lib {
 
                             int progress = (int) ((totalRead * 100) / fileSize);
                             callback.onProgress(progress);
+                            Log.d("download Progress", String.valueOf(progress));
 
                             if (remaining == 0) break;
                         }
