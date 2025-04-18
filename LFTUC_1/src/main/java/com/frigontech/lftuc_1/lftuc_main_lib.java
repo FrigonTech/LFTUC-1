@@ -497,6 +497,7 @@ public class lftuc_main_lib {
             if (isRequestingFileContent) {
                 String[] requestSplices = requestedPath.split("/");
                 List<String> requestSplicesStringList = new ArrayList<>(Arrays.asList(requestSplices));
+                Log.d("Handler Side", requestSplicesStringList.toString());
                 int requestLastIndex = requestSplicesStringList.size() - 1;
                 String fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(6);
                 requestSplicesStringList.set(requestLastIndex, fixedFileName);
@@ -521,9 +522,9 @@ public class lftuc_main_lib {
                 out.flush();
             } else if (isRequestingFileContent) {
                 Log.d("Handler Side", "Requested Path: "+newContentRequestedPath);
-                File requestedFile = new File(newContentRequestedPath);
+                File requestedFile = new File("/storage/emulated/0/.LFTUC-Shared", newContentRequestedPath);// hardcode the server files path (its default)
+                DataOutputStream dos = new DataOutputStream(outputStream);
                 if (requestedFile.isFile()) {
-                    DataOutputStream dos = new DataOutputStream(outputStream);
                     FileInputStream fis = new FileInputStream(requestedFile);
                     Log.d("Handler Side", "Requested File Found: "+newContentRequestedPath);
 
@@ -541,12 +542,16 @@ public class lftuc_main_lib {
 
                     fis.close();
                     dos.flush(); // Ensure all data is sent
+                    dos.close();
                     lftuc_receivedMessages.add("File transfer completed: " + requestedFile.getName());
-                } else {
-                    out.write("LFTUC*ERROR* Invalid file\n");
                     out.flush();
+                }else{
+                    dos.writeLong(-1L);  // Special flag: file doesn't exist
+                    dos.flush(); // Ensure all data is sent
+                    dos.close();
                 }
             } else {
+
                 out.write("LFTUC*ERROR* Invalid path\n");
                 out.flush();
             }
@@ -681,13 +686,20 @@ public class lftuc_main_lib {
                     Log.d("File Download", "file download request detected");
 
                     long fileSize = dis.readLong();
+
+                    // 🚨 Check if file doesn't exist
+                    if (fileSize == -1L) {
+                        callback.onError("File doesn't exist on the server.");
+                        Log.e("File Download", "Server responded with fileSize = -1. File doesn't exist.");
+                        return;
+                    }
                     String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
 
                     // Handle save path and duplicates
                     File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/LFTUC-Received");
                     if (!lftucDir.exists()) lftucDir.mkdirs();
 
-                    String baseName = fileName;
+                    String baseName = fileName.substring(6);
                     String extension = "";
                     int dotIndex = fileName.lastIndexOf('.');
                     if (dotIndex > 0) {
@@ -695,7 +707,7 @@ public class lftuc_main_lib {
                         extension = fileName.substring(dotIndex);
                     }
 
-                    File targetFile = new File(lftucDir, "received_" + baseName + extension);
+                    File targetFile = new File(lftucDir, baseName + extension);
                     Log.d("File Download", "File Received from server: "+baseName+extension);
                     int count = 1;
                     while (targetFile.exists()) {

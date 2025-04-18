@@ -94,10 +94,10 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
             delay(3500)
             lftuc_receivedMessages.add("***server Status after delay: "+serverRunning.get())
             // Now call requestFile, also in background thread
-            LFTUCRequestSharedFolder(lftuc_getLinkLocalIPv6Address(), 8080, "shared games",
+            LFTUCRequestSharedFolder(lftuc_getLinkLocalIPv6Address(), 8080, "shared games/[FILE]game names.txt",
                 object : LFTUCFolderCallback {
                     override fun onResult(files: List<String>) {
-                        lftuc_receivedMessages.add("success requesting...")
+                        //lftuc_receivedMessages.add("success requesting...")
                     }
 
                     override fun onError(errorMessage: String) {
@@ -105,11 +105,11 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
                     }
 
                     override fun onProgress(progress: Int) {
-                        TODO("Not yet implemented")
+                        lftuc_receivedMessages.add("Download progress: $progress%")
                     }
 
                     override fun onDownloadComplete(downloadCompleteMessage: String?) {
-                        TODO("Not yet implemented")
+                        lftuc_receivedMessages.add(downloadCompleteMessage)
                     }
                 }
             )
