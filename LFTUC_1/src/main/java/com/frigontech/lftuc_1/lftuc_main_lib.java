@@ -718,7 +718,7 @@ public class lftuc_main_lib {
                     }
 
                     File targetFile = new File(lftucDir, "received_" + baseName + extension);
-                    Log.d("File Download", "File Received from server: "+baseName+"."+extension);
+                    Log.d("File Download", "File Received from server: "+baseName+extension);
                     int count = 1;
                     while (targetFile.exists()) {
                         targetFile = new File(lftucDir, "received_" + baseName + "(" + count + ")" + extension);
@@ -733,6 +733,8 @@ public class lftuc_main_lib {
                         long totalRead = 0;
 
                         while ((read = dis.read(buffer, 0, (int) Math.min(buffer.length, remaining))) > 0) {
+                            Log.d("File Download Content Loop", "FIle REad Loop Closed");
+                            Log.d("FileDownload", "Read " + read + " bytes");
                             if (isDownloadCancelled) {
                                 fos.close(); // Just to be sure
                                 targetFile.delete();
@@ -748,8 +750,9 @@ public class lftuc_main_lib {
 
                             int progress = (int) ((totalRead * 100) / fileSize);
                             callback.onProgress(progress);
-                            Log.d("download Progress", String.valueOf(progress));
+                            Log.d("download Progress", totalRead +" * 100/"+ fileSize+ "=" + String.valueOf(progress));
 
+                            Log.d("File Download Content Loop", "FIle REad Loop Closed");
                             if (remaining == 0) break;
                         }
 
