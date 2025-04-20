@@ -376,6 +376,7 @@ public class lftuc_main_lib {
     //-------------------------------------START LFTUC Server---------------------------------------
     //-------------------------------------Server-Side Variables
     public static File lftuc_SharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
+    public static File lftuc_SharedFileDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/shared_files");
     public static File lftuc_RootDir = Environment.getExternalStorageDirectory();
     public static ServerSocket serverSocket;
     public static AtomicBoolean serverRunning = new AtomicBoolean(false);
@@ -519,8 +520,8 @@ public class lftuc_main_lib {
         } catch (IOException e) {
         }
     }
-    //-------------------------------Map folder to LFTUC server-------------------------------------
-    //-----------------Mapping folder variables
+    //-------------------------------Map file/folder to LFTUC server-------------------------------------
+    //-----------------Mapping file/folder variables
     public static Boolean lftuc_needToReplaceObject = false;
     public static Boolean lftuc_getNeedToReplaceObject(){
         synchronized (lftuc_needToReplaceObject){
@@ -535,7 +536,8 @@ public class lftuc_main_lib {
         //target directory is lftuc_SharedDir //defined above
         if(!lftuc_SharedDir.exists()) lftuc_SharedDir.mkdirs(); //make shared dir if it doesn't exist
         File sourceObject = new File(filePath);
-        File destObject = new File(lftuc_SharedDir, sourceObject.getName());
+        File destFolder = sourceObject.isDirectory()? lftuc_SharedDir : lftuc_SharedFileDir;
+        File destObject = new File(destFolder, sourceObject.getName());
 
         if(!sourceObject.exists()){
             return false;
