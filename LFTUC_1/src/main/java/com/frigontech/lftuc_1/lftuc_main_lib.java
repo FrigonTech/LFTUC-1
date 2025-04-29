@@ -3,6 +3,7 @@ package com.frigontech.lftuc_1;
 import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
+import android.os.StatFs;
 import android.provider.Telephony;
 import android.util.Log;
 import android.net.wifi.WifiManager;
@@ -446,6 +447,46 @@ public class lftuc_main_lib {
         }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
     }
     //------------------------------------Handle LFTUC Client---------------------------------------
+    private static long calculateTotalSize(File dir) {
+        long totalSize = 0;
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    totalSize += calculateTotalSize(file);
+                } else {
+                    totalSize += file.length();
+                }
+            }
+        }
+        return totalSize;
+    }
+    private static void sendDirectory(File dir, String basePath, DataOutputStream dos) throws IOException {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    sendDirectory(file, basePath, dos); // Recurse
+                } else {
+                    FileInputStream fis = new FileInputStream(file);
+
+                    String relativePath = file.getAbsolutePath().substring(basePath.length() + 1).replace("\\", "/");
+                    dos.writeUTF(relativePath); // Send file path
+
+                    long fileSize = file.length();
+                    dos.writeLong(fileSize); // Send size of this file
+
+                    byte[] buffer = new byte[4096];
+                    int bytesRead;
+                    while ((bytesRead = fis.read(buffer)) != -1) {
+                        dos.write(buffer, 0, bytesRead); // Send file data
+                    }
+
+                    fis.close();
+                }
+            }
+        }
+    }
 
     private static void LFTUCHandleClient(Socket clientSocket, Boolean rootAccess) {
         try {
@@ -485,9 +526,10 @@ public class lftuc_main_lib {
                 out.write("LFTUC*FOLDEREND*\n");
                 out.flush();
             } else if (isRequestingFileContent) {
-                File requestedFile = new File("/storage/emulated/0/.LFTUC-Shared", newContentRequestedPath);// hardcode the server files path (its default)
+                String fileRequestRootFolder = (rootAccess)? "/storage/emulated/0" : "/storage/emulated/0/.LFTUC-Shared";
+                File requestedFile = new File(fileRequestRootFolder, newContentRequestedPath);// hardcode the server files path (its default)
                 DataOutputStream dos = new DataOutputStream(outputStream);
-                if (requestedFile.isFile()) {
+                if (requestedFile.isFile() && requestedFile.exists()) {
                     FileInputStream fis = new FileInputStream(requestedFile);
 
                     long fileSize = requestedFile.length();
@@ -504,7 +546,16 @@ public class lftuc_main_lib {
                     dos.flush(); // Ensure all data is sent
                     dos.close();
                     out.flush();
-                }else{
+                } else if(requestedFile.isDirectory() && requestedFile.exists()){
+                    // Calculate total size of all files inside the folder
+                    long totalSize = calculateTotalSize(requestedFile);
+                    dos.writeLong(totalSize); // ✅ Send total size first!
+
+                    // Now send all files
+                    sendDirectory(requestedFile, requestedFile.getAbsolutePath(), dos);
+                    dos.flush();
+                }
+                else{
                     dos.writeLong(-1L);  // Special flag: file doesn't exist
                     dos.flush(); // Ensure all data is sent
                     dos.close();
@@ -528,6 +579,42 @@ public class lftuc_main_lib {
             return lftuc_needToReplaceObject;
         }
     }
+    private static boolean copyFolderRecursively(File source, File dest) {
+        if (source.isDirectory()) {
+            if (!dest.exists() && !dest.mkdirs()) return false;
+            File[] children = source.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    if (!copyFolderRecursively(child, new File(dest, child.getName())))
+                        return false;
+                }
+            }
+        } else {
+            try (InputStream in = new FileInputStream(source);
+                 OutputStream out = new FileOutputStream(dest)) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) > 0) {
+                    out.write(buffer, 0, bytesRead);
+                }
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean deleteRecursively(File file) {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    if (!deleteRecursively(child)) return false;
+                }
+            }
+        }
+        return file.delete();
+    }
     public static Boolean moveFileObjectToLFTUCSharedDir(String filePath){
         return moveFileObjectToLFTUCSharedDir(filePath, false);
     }
@@ -550,10 +637,12 @@ public class lftuc_main_lib {
 
             if(replaceObject) destObject.delete(); else return false;
 
-            if(sourceObject.renameTo(destObject)) {
-                return true;
+            if (sourceObject.isFile()) {
+                // Try to rename directly for a file
+                return sourceObject.renameTo(destObject);
             } else {
-                return false;
+                // For directories, copy contents recursively
+                return copyFolderRecursively(sourceObject, destObject) && deleteRecursively(sourceObject);
             }
         }else{
             if(sourceObject.renameTo(destObject)) {
@@ -627,7 +716,6 @@ public class lftuc_main_lib {
             DataInputStream dis = null;
 
             try {
-                // Always create new socket if previous is closed
                 if (clientSocket == null || clientSocket.isClosed()) {
                     clientSocket = new Socket();
                 }
@@ -639,44 +727,78 @@ public class lftuc_main_lib {
                 out.write(relativePath + "\n");
                 out.flush();
 
+                dis = new DataInputStream(clientSocket.getInputStream());
+
+                long fileSizeOrTotalSize = dis.readLong();
+
+                if (fileSizeOrTotalSize == -1L) {
+                    callback.onError("File/Folder doesn't exist on the server.");
+                    return;
+                } else {
+                    String formattedSize = convertFileSize(fileSizeOrTotalSize);
+                    callback.onGotFileSize(formattedSize);
+                }
+
                 if (!relativePath.contains("[FILE]")) {
-                    // Folder listing
-                    in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                    String response;
-                    while ((response = in.readLine()) != null) {
-                        if (response.startsWith("LFTUC*FOLDEREND*") || response.startsWith("LFTUC*ERROR*")) {
-                            break;
+                    // Folder receiving mode
+                    File baseSaveDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/LFTUC-Received");
+                    if (!baseSaveDir.exists()) baseSaveDir.mkdirs();
+
+                    long totalBytesReceived = 0;
+
+                    while (totalBytesReceived < fileSizeOrTotalSize) {
+                        String relativeFilePath = dis.readUTF(); // Read next file path
+                        long singleFileSize = dis.readLong();    // Read its size
+
+                        File outputFile = new File(baseSaveDir, relativeFilePath);
+                        outputFile.getParentFile().mkdirs(); // Make sure folder exists
+
+                        try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                            byte[] buffer = new byte[4096];
+                            long bytesRemaining = singleFileSize;
+                            int bytesRead;
+
+                            while (bytesRemaining > 0 && (bytesRead = dis.read(buffer, 0, (int) Math.min(buffer.length, bytesRemaining))) != -1) {
+                                fos.write(buffer, 0, bytesRead);
+                                bytesRemaining -= bytesRead;
+                                totalBytesReceived += bytesRead;
+
+                                int progress = (int) ((totalBytesReceived * 100) / fileSizeOrTotalSize);
+                                callback.onProgress(progress);
+
+                                if (isDownloadCancelled) {
+                                    fos.close();
+                                    outputFile.delete();
+                                    callback.onError("Download cancelled.");
+                                    return;
+                                }
+                            }
                         }
 
-                        String fileName = response.contains("[DIR] ")
-                                ? response.substring(6)
-                                : response.substring(7);
-                        filesInHere.add(fileName);
+                        filesInHere.add(relativeFilePath); // Add the received file to result list
                     }
 
-                    callback.onResult(filesInHere);
+                    if (!isDownloadCancelled) {
+                        callback.onResult(filesInHere);
+                    }
+
                 } else {
-                    // File download
-                    dis = new DataInputStream(clientSocket.getInputStream());
-                    
-
-                    long fileSize = dis.readLong();
-
-                    // 🚨 Check if file doesn't exist
-                    if (fileSize == -1L) {
-                        callback.onError("File doesn't exist on the server.");
-                        
-                        return;
-                    }else{
-                        String formattedFileSize = convertFileSize(fileSize);
-                        callback.onGotFileSize(formattedFileSize);
-                    }
-
+                    // Single file receiving mode
                     String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
 
-                    // Handle save path and duplicates
                     File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/LFTUC-Received");
                     if (!lftucDir.exists()) lftucDir.mkdirs();
+                    // Get free space in external storage
+                    StatFs statFs = new StatFs(lftucDir.getAbsolutePath());
+                    long availableBytes = (long) statFs.getAvailableBlocksLong() * statFs.getBlockSizeLong();
+                    //check if the storage worth of downloading this file is even available in memory or not
+                    // Compare and use formatted sizes in the error message
+                    if (fileSizeOrTotalSize > availableBytes) {
+                        String requiredSize = convertFileSize(fileSizeOrTotalSize);
+                        String availableSize = convertFileSize(availableBytes);
+                        callback.onError("Not enough space. Required: " + requiredSize + ", Available: " + availableSize + ".");
+                        return;
+                    }
 
                     String baseName = fileName;
                     String extension = "";
@@ -695,36 +817,31 @@ public class lftuc_main_lib {
 
                     try (FileOutputStream fos = new FileOutputStream(targetFile)) {
                         byte[] buffer = new byte[4096];
-                        int read;
-                        long remaining = fileSize;
+                        long remaining = fileSizeOrTotalSize;
                         long totalRead = 0;
+                        int read;
 
                         while ((read = dis.read(buffer, 0, (int) Math.min(buffer.length, remaining))) > 0) {
-                            
-                            
-                            if (isDownloadCancelled) {
-                                fos.close(); // Just to be sure
-                                targetFile.delete();
-                                callback.onError("Download cancelled by user");
-
-                                return;
-                            }
-
                             fos.write(buffer, 0, read);
                             remaining -= read;
                             totalRead += read;
 
-                            int progress = (int) ((totalRead * 100) / fileSize);
+                            int progress = (int) ((totalRead * 100) / fileSizeOrTotalSize);
                             callback.onProgress(progress);
 
-                            
+                            if (isDownloadCancelled) {
+                                fos.close();
+                                targetFile.delete();
+                                callback.onError("Download cancelled by user");
+                                return;
+                            }
+
                             if (remaining == 0) break;
                         }
 
                         if (!isDownloadCancelled && remaining == 0) {
                             callback.onDownloadComplete("File received and saved to: " + targetFile.getAbsolutePath());
                         }
-
                     } catch (IOException e) {
                         callback.onError("File write error: " + e.getMessage());
                     }
@@ -739,9 +856,9 @@ public class lftuc_main_lib {
                 try { if (dis != null) dis.close(); } catch (Exception ignored) {}
                 try { if (clientSocket != null && !clientSocket.isClosed()) clientSocket.close(); } catch (Exception ignored) {}
 
-                // Keep it clean for the next round
                 isDownloadCancelled = false;
             }
         }).start();
     }
+
 }
