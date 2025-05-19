@@ -391,61 +391,88 @@ public class lftuc_main_lib {
         startLFTUCServer(context, false);
     }
     public static void startLFTUCServer(Context context, Boolean rootAccess) {
-        if(serverRunning.get()){
-
+        if (serverRunning.get()) {
+            Log.d("LFTUCServer", "Server is already running.");
             return;
         }
+
         serverThread = new Thread(() -> {
             try {
                 String ipv6Address = lftuc_getLinkLocalIPv6Address();
                 if (ipv6Address == null) {
-
+                    Log.e("LFTUCServer", "Failed to retrieve IPv6 address.");
                     serverRunning.set(false);
                     return;
                 }
 
-                // Use IPv6 link-local address with zone (interface) specified
                 InetAddress ipv6Addr = Inet6Address.getByName(ipv6Address);
-
                 serverSocket = new ServerSocket();
-                // Bind to the IPv6 address and port 8080
+                serverSocket.setReuseAddress(true);
                 serverSocket.bind(new InetSocketAddress(ipv6Addr, 8080));
+
                 File sharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+                    Log.e("LFTUCServer", "Missing external storage permissions.");
                     return;
                 }
-                serverRunning.set(true);
-                
 
                 if (!sharedDir.exists()) {
-                    sharedDir.mkdirs(); // use mkdirs() for nested paths
-                }else{
+                    sharedDir.mkdirs(); // Ensure directory exists
                 }
 
-                // Server is now live, serve the file to any connecting client
+                Log.d("LFTUCServer", "Server started on: " + ipv6Address + ":8080");
+                serverRunning.set(true); // ✅ Move this here after checks
+
                 while (serverRunning.get()) {
-                    Socket clientSocket = serverSocket.accept();
-                    new Thread(() -> LFTUCHandleClient(clientSocket, rootAccess)).start();
-                }
+                    if (serverSocket.isClosed()) {
+                        break;
+                    }
 
+                    try {
+                        Socket clientSocket = serverSocket.accept();
+                        new Thread(() -> LFTUCHandleClient(clientSocket, rootAccess)).start();
+                    } catch (IOException e) {
+                        Log.e("LFTUCServer", "Error accepting connection: " + e.getMessage());
+                    }
+                }
             } catch (IOException e) {
+                Log.e("LFTUCServer", "Server error: " + e.getMessage());
                 serverRunning.set(false);
-                
+            } finally {
+                stopLFTUCServer(); // ✅ Cleanup to prevent crashes
             }
         });
 
         serverThread.start();
     }
-    //------------------------------------STOP LFTUC Server-----------------------------------------
-    public static void stopLFTUCServer(){
-        try{
-            if(serverSocket != null && !serverSocket.isClosed()){
-                serverSocket.close();
-                serverRunning.set(false);
-                
+
+    // -------------------------------- STOP LFTUC SERVER -----------------------------------
+    public static void stopLFTUCServer() {
+        if (!serverRunning.get()) {
+            Log.d("LFTUCServer", "Server is not running.");
+            return;
+        }
+
+        serverRunning.set(false); // ✅ Ensure flag is set before stopping
+
+        try {
+            if (serverThread != null && serverThread.isAlive()) {
+                serverThread.interrupt();
+                serverThread.join(); // ✅ Ensure proper thread cleanup
+                serverThread = null;
             }
-        }catch(IOException ignored) {} // the try block almost can't fail so ignore this.
+
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+                serverSocket = null;
+            }
+
+            Log.d("LFTUCServer", "Server successfully stopped.");
+        } catch (Exception e) {
+            Log.e("LFTUCServer", "Error stopping server: " + e.getMessage());
+        }
     }
+
     //------------------------------------Handle LFTUC Client---------------------------------------
     private static long calculateTotalSize(File dir) {
         long totalSize = 0;
@@ -500,17 +527,27 @@ public class lftuc_main_lib {
             String requestedPath = in.readLine();
             if (requestedPath == null) requestedPath = "";
 
-            boolean isRequestingFileContent = requestedPath.contains("[FILE]");
+            boolean isRequestingFileContent = requestedPath.contains("[req]");
             String newContentRequestedPath = "";
 
+            /*
+                * get requested directory or file's local path on server
+            */
+            String[] requestSplices = requestedPath.split("/");
+            List<String> requestSplicesStringList = new ArrayList<>(Arrays.asList(requestSplices));
+            int requestLastIndex = requestSplicesStringList.size() - 1;
+            String fixedFileName = "";
             if (isRequestingFileContent) {
-                String[] requestSplices = requestedPath.split("/");
-                List<String> requestSplicesStringList = new ArrayList<>(Arrays.asList(requestSplices));
-                int requestLastIndex = requestSplicesStringList.size() - 1;
-                String fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(6);
-                requestSplicesStringList.set(requestLastIndex, fixedFileName);
-                newContentRequestedPath = String.join("/", requestSplicesStringList);
+                requestSplicesStringList.get(requestLastIndex).substring(6);//remove [FILE] from the requested file
+                requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove [req] from the requested file
+            }else{
+                requestSplicesStringList.get(requestLastIndex).substring(5);//remove [DIR] from the requested file
+                requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove [req] from the requested file
             }
+            requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove the [req] tag
+            requestSplicesStringList.set(requestLastIndex, fixedFileName);
+            newContentRequestedPath = String.join("/", requestSplicesStringList);
+
 
             File initialDir = rootAccess ? lftuc_RootDir : lftuc_SharedDir;
             File targetDir = new File(initialDir, requestedPath);
@@ -615,8 +652,20 @@ public class lftuc_main_lib {
         }
         return file.delete();
     }
-    public static Boolean moveFileObjectToLFTUCSharedDir(String filePath){
-        return moveFileObjectToLFTUCSharedDir(filePath, false);
+    public static Boolean moveFileObjectToLFTUCSharedDir(String[] filePath){
+        Boolean Success = false;
+        if(filePath.length<=1){
+            Success = moveFileObjectToLFTUCSharedDir(filePath[0], false);
+        }else{
+            for (String file : filePath){
+                Success = moveFileObjectToLFTUCSharedDir(file, false);
+                if(Success!=true){
+                    break;
+                }
+            }
+        }
+
+        return Success;
     }
     public static Boolean moveFileObjectToLFTUCSharedDir(String filePath, Boolean replaceObject){
         //the file path wheter file or folder should be passed as an absolute path/directory
@@ -700,7 +749,6 @@ public class lftuc_main_lib {
         void onGotFileSize(String fileSize); // in adjusted file size notation (b (bits) in its range, B (bytes) in its range, kb (kilobits) in its range, kB (kilo bytes) in its range, Gb (giga bits) for its range, GB (giga bytes) in its range)
         void onDownloadComplete(String downloadCompleteMessage);
     }
-
     public static void LFTUCRequestSharedFolder(String ServerAddress, int Port, String relativePath, LFTUCFolderCallback callback) {
         new Thread(() -> {
             List<String> filesInHere = new ArrayList<>();
