@@ -278,7 +278,7 @@ public class lftuc_main_lib {
     //------------------------------Function to stop the listener-----------------------------------
     public static void stopLFTUCMulticastListener() {
         try {
-            lftuc_currentServers.clear();
+
             if (multicastThread != null) {
                 multicastThread.interrupt();  // Interrupt the thread, ensuring it stops waiting on receive
                 multicastThread = null;
@@ -294,6 +294,7 @@ public class lftuc_main_lib {
                 
                 multicastLock.release();
             }
+            lftuc_currentServers.clear();
         } catch (Exception e) {
         }
     }
