@@ -278,6 +278,7 @@ public class lftuc_main_lib {
     //------------------------------Function to stop the listener-----------------------------------
     public static void stopLFTUCMulticastListener() {
         try {
+            lftuc_currentServers.clear();
             if (multicastThread != null) {
                 multicastThread.interrupt();  // Interrupt the thread, ensuring it stops waiting on receive
                 multicastThread = null;
@@ -364,15 +365,27 @@ public class lftuc_main_lib {
 
     //-----------------------------------Stop LFTUC Echo--------------------------------------------
     public static void stopLFTUCMulticastEcho() {
+        if (!isEchoing) return;  // If echoing is already stopped, exit
+
         isEchoing = false;
-        while(!deadEchoPacketSent){
-            if(deadEchoPacketSent){
-                if (multicastEchoThread != null) {
-                    multicastEchoThread.interrupt();
-                    multicastEchoThread = null;
-                }
+
+        // Interrupt the multicast thread immediately
+        if (multicastEchoThread != null && multicastEchoThread.isAlive()) {
+            multicastEchoThread.interrupt();
+            multicastEchoThread = null;
+        }
+
+        // Wait for the "dead echo packet" to be sent
+        long startTime = System.currentTimeMillis();
+        while (!deadEchoPacketSent && System.currentTimeMillis() - startTime < 5000) { // Timeout after 5 seconds
+            try {
+                Thread.sleep(100); // Small wait to allow dead packet sending
+            } catch (InterruptedException e) {
+                break;
             }
         }
+
+        deadEchoPacketSent = false; // Reset flag for next session
     }
     //-------------------------------------START LFTUC Server---------------------------------------
     //-------------------------------------Server-Side Variables
@@ -529,6 +542,14 @@ public class lftuc_main_lib {
 
             boolean isRequestingFileContent = requestedPath.contains("[req]");
             String newContentRequestedPath = "";
+
+            //change path system according to client machine
+            if (!requestedPath.isEmpty() && requestedPath.contains("\\")) //an escape for backslash; meaning '\
+            {
+                //for windows to android
+                String[] processingsplices = requestedPath.split("\\\\");
+                requestedPath = String.join("/", processingsplices); //converting from '\' to '/'
+            }
 
             /*
                 * get requested directory or file's local path on server
