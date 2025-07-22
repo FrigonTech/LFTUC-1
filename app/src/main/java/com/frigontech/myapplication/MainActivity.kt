@@ -86,7 +86,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
         val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
         activity?.startActivityForResult(intent, 1)
 
-        moveFileObjectToLFTUCSharedDir("/storage/emulated/0/Download/images.jpeg", false)
+        moveFileObjectToLFTUCSharedDir("/storage/emulated/0/Download/images (1).jpeg", false)
 
         while (true) {
             synchronized(lftuc_receivedMessages) {

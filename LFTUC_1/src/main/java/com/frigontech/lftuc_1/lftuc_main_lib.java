@@ -11,6 +11,7 @@ import android.net.wifi.WifiManager;
 import androidx.annotation.NonNull;
 
 import java.net.*;
+import java.nio.file.Files;
 import java.security.spec.ECField;
 import java.sql.Array;
 import java.text.MessageFormat;
@@ -723,11 +724,11 @@ public class lftuc_main_lib {
             if (sourceObject.isFile()) {
                 // Try to rename directly for a file
                 try{
-                    boolean moved = sourceObject.renameTo(destObject);
-                    lftuc_receivedMessages.add("copying file (renaming it to new destination object: success: " + moved);
-                    return moved;
-                }catch(SecurityException ex){
-                    lftuc_receivedMessages.add("Security Exception occured: " + ex);
+                    Files.copy(sourceObject.toPath(), destObject.toPath());
+                    lftuc_receivedMessages.add("copying file (renaming it to new destination object: success: true");
+                    return true;
+                } catch (IOException e) {
+                    lftuc_receivedMessages.add("exception while copying...: " + e);
                     return false;
                 }
 
@@ -738,9 +739,15 @@ public class lftuc_main_lib {
                 return movedDIR;
             }
         }else{
-            boolean moved = sourceObject.renameTo(destObject);
-            lftuc_receivedMessages.add("copying file (renaming it to new destination object: success: " + moved);
-            return moved;
+            try{
+                Files.copy(sourceObject.toPath(), destObject.toPath());
+                lftuc_receivedMessages.add("copying file (renaming it to new destination object: success: true");
+                return true;
+            }catch(IOException e){
+                lftuc_receivedMessages.add("failed copy file");
+                return false;
+            }
+
         }
     }
     //-------------------------------LFTUC Client-Side Requests-------------------------------------
