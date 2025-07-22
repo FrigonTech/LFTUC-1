@@ -390,8 +390,8 @@ public class lftuc_main_lib {
     }
     //-------------------------------------START LFTUC Server---------------------------------------
     //-------------------------------------Server-Side Variables
-    public static File lftuc_SharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
-    public static File lftuc_SharedFileDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/shared_files");
+    public static File lftuc_SharedDir = new File(Environment.getExternalStorageDirectory(), "/.LFTUC-Shared/Hosted");
+    public static File lftuc_SharedFileDir = new File(Environment.getExternalStorageDirectory(), "/.LFTUC-Shared/Hosted");
     public static File lftuc_RootDir = Environment.getExternalStorageDirectory();
     public static ServerSocket serverSocket;
     public static AtomicBoolean serverRunning = new AtomicBoolean(false);
@@ -424,7 +424,7 @@ public class lftuc_main_lib {
                 serverSocket.setReuseAddress(true);
                 serverSocket.bind(new InetSocketAddress(ipv6Addr, 8080));
 
-                File sharedDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared");
+                File sharedDir = new File(Environment.getExternalStorageDirectory(), "/.LFTUC-Shared/Hosted");
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
                     Log.e("LFTUCServer", "Missing external storage permissions.");
                     return;
@@ -585,7 +585,7 @@ public class lftuc_main_lib {
                 out.write("LFTUC*FOLDEREND*\n");
                 out.flush();
             } else if (isRequestingFileContent) {
-                String fileRequestRootFolder = (rootAccess)? "/storage/emulated/0" : "/storage/emulated/0/.LFTUC-Shared";
+                String fileRequestRootFolder = (rootAccess)? "/storage/emulated/0" : "/storage/emulated/0/.LFTUC-Shared/Hosted";
                 File requestedFile = new File(fileRequestRootFolder, newContentRequestedPath);// hardcode the server files path (its default)
                 DataOutputStream dos = new DataOutputStream(outputStream);
                 if (requestedFile.isFile() && requestedFile.exists()) {
@@ -694,7 +694,7 @@ public class lftuc_main_lib {
         //target directory is lftuc_SharedDir //defined above
         if(!lftuc_SharedDir.exists()) lftuc_SharedDir.mkdirs(); //make shared dir if it doesn't exist
         File sourceObject = new File(filePath);
-        File destFolder = sourceObject.isDirectory()? lftuc_SharedDir : lftuc_SharedFileDir;
+        File destFolder = /*sourceObject.isDirectory()? */ lftuc_SharedDir /*: lftuc_SharedFileDir*/;
         File destObject = new File(destFolder, sourceObject.getName());
 
         if(!sourceObject.exists()){
@@ -716,16 +716,12 @@ public class lftuc_main_lib {
                 return copyFolderRecursively(sourceObject, destObject) && deleteRecursively(sourceObject);
             }
         }else{
-            if(sourceObject.renameTo(destObject)) {
-                return true;
-            } else {
-                return false;
-            }
+            return sourceObject.renameTo(destObject);
         }
     }
     //-------------------------------LFTUC Client-Side Requests-------------------------------------
     //-------------------------------Client-Side Variables
-    public String lftuc_manipulatedPath = Environment.getExternalStorageDirectory().toString()+"/.LFTUC-Shared";
+    public String lftuc_manipulatedPath = Environment.getExternalStorageDirectory().toString()+"/.LFTUC-Shared/Hosted";
     public static Thread clientThread;
     public static Socket clientSocket = new Socket();
     public File lftuc_CurrentPath() {
