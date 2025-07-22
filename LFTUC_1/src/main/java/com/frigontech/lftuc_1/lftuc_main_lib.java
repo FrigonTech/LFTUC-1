@@ -692,31 +692,55 @@ public class lftuc_main_lib {
     public static Boolean moveFileObjectToLFTUCSharedDir(String filePath, Boolean replaceObject){
         //the file path wheter file or folder should be passed as an absolute path/directory
         //target directory is lftuc_SharedDir //defined above
-        if(!lftuc_SharedDir.exists()) lftuc_SharedDir.mkdirs(); //make shared dir if it doesn't exist
+        if(!lftuc_SharedDir.exists()) {
+            lftuc_SharedDir.mkdirs();
+            lftuc_receivedMessages.add("created directory" + lftuc_SharedDir);
+        } //make shared dir if it doesn't exist
         File sourceObject = new File(filePath);
         File destFolder = /*sourceObject.isDirectory()? */ lftuc_SharedDir /*: lftuc_SharedFileDir*/;
         File destObject = new File(destFolder, sourceObject.getName());
 
         if(!sourceObject.exists()){
+            lftuc_receivedMessages.add("source file doesn't exist somehow");
             return false;
         }
         String sourceType = sourceObject.isDirectory()? "Folder" : "File";
+        lftuc_receivedMessages.add("source type: " + sourceType);
         if(destObject.exists()){
             // manage repalce object for all rest of the files/folders or just do it for this one in
             //the look or single process
             lftuc_needToReplaceObject = true;
+            lftuc_receivedMessages.add("need to replace file object: " + lftuc_needToReplaceObject);
 
-            if(replaceObject) destObject.delete(); else return false;
+            if(replaceObject) {
+                destObject.delete();
+                lftuc_receivedMessages.add("deleted destination file because it already existed");
+            } else {
+                lftuc_receivedMessages.add("no permission to delete destination object which had to be replaced");
+                return false;
+            }
 
             if (sourceObject.isFile()) {
                 // Try to rename directly for a file
-                return sourceObject.renameTo(destObject);
+                try{
+                    boolean moved = sourceObject.renameTo(destObject);
+                    lftuc_receivedMessages.add("copying file (renaming it to new destination object: success: " + moved);
+                    return moved;
+                }catch(SecurityException ex){
+                    lftuc_receivedMessages.add("Security Exception occured: " + ex);
+                    return false;
+                }
+
             } else {
                 // For directories, copy contents recursively
-                return copyFolderRecursively(sourceObject, destObject) && deleteRecursively(sourceObject);
+                boolean movedDIR = copyFolderRecursively(sourceObject, destObject) && deleteRecursively(sourceObject);
+                lftuc_receivedMessages.add("Copying contents recursively lmao. : " + movedDIR);
+                return movedDIR;
             }
         }else{
-            return sourceObject.renameTo(destObject);
+            boolean moved = sourceObject.renameTo(destObject);
+            lftuc_receivedMessages.add("copying file (renaming it to new destination object: success: " + moved);
+            return moved;
         }
     }
     //-------------------------------LFTUC Client-Side Requests-------------------------------------

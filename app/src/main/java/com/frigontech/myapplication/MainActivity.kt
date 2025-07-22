@@ -83,49 +83,10 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
     val messages = remember{mutableStateListOf<String>()}
     // Continuously check the Java list and update every 2 seconds
     LaunchedEffect(Unit) {
+        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+        activity?.startActivityForResult(intent, 1)
 
-        withContext(Dispatchers.IO) {
-            // Start network services in background
-            startLFTUCMulticastListener(context, "239.255.255.250", 8080)
-            startLFTUCMulticastEcho(1, "VIVO", lftuc_getLinkLocalIPv6Address(), 8080, 1, "239.255.255.250")
-            startLFTUCServer(context)
-            lftuc_receivedMessages.add("***server Status before delay: "+serverRunning.get())
-            // Wait a moment for server to initialize
-            delay(3500)
-            lftuc_receivedMessages.add("***server Status after delay: "+serverRunning.get())
-            // Now call requestFile, also in background thread
-            LFTUCRequestSharedFolder(lftuc_getLinkLocalIPv6Address(), 8080, "stress test/[FILE]Adobe Premiere Pro 2021 v15.4.1.6 (x64) Multilingual.7z",
-                object : LFTUCFolderCallback {
-                    override fun onResult(files: List<String>) {
-                        //lftuc_receivedMessages.add("success requesting...")
-                    }
-
-                    override fun onError(errorMessage: String) {
-                        lftuc_receivedMessages.add("failed request...")
-                    }
-
-                    override fun onProgress(progress: Int) {
-                        val progress = "$progress"
-                        if(!lftuc_receivedMessages.contains(progress)){
-                            lftuc_receivedMessages.add("$progress")
-                        }
-                    }
-
-                    override fun onGotFileSize(fileSize: String) {
-                        lftuc_receivedMessages.add("File Size: $fileSize")
-                    }
-
-                    override fun onDownloadComplete(downloadCompleteMessage: String?) {
-                        lftuc_receivedMessages.add(downloadCompleteMessage)
-                    }
-                }
-            )
-
-            delay(1000)
-            cancelFileDownload()
-            // used like as in this name, because inclusion in the module but right now being tested
-            lftuc_receivedMessages.add("***server Status after request: "+serverRunning.get())
-        }
+        moveFileObjectToLFTUCSharedDir("/storage/emulated/0/Download/images.jpeg", false)
 
         while (true) {
             synchronized(lftuc_receivedMessages) {
