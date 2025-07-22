@@ -89,11 +89,8 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
         moveFileObjectToLFTUCSharedDir("/storage/emulated/0/Download/images (1).jpeg", false)
 
         while (true) {
-            synchronized(lftuc_receivedMessages) {
-                // Find new messages that are not already in the Compose list
-                val newMessages = lftuc_receivedMessages.filterNot { messages.contains(it) }
-                messages.addAll(newMessages) // Add only new messages
-            }
+            val newMessages = lftuc_getReceivedMessages().filterNot { messages.contains(it) }
+            messages.addAll(newMessages) // Add only new messages
             delay(500) // Wait for 0.5 seconds
         }
 

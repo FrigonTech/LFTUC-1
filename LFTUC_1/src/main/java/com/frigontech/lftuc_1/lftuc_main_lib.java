@@ -311,12 +311,11 @@ public class lftuc_main_lib {
         startLFTUCMulticastEcho(AddressCode, DeviceName, lftuc_getLinkLocalIPv6Address(), 8080, 1,"239.255.255.250");
     }
     public static void startLFTUCMulticastEcho(int AddressCode, String DeviceName, String IPAddress, int port, int OnlineStatus, String multicastGroup) {
-        if(IPAddress.isBlank()){
+        if (IPAddress.isBlank() || isEchoing) {
+            Log.d("LFTUCEcho", "Echo not started: IP blank or already echoing.");
             return;
         }
-        if (isEchoing) {
-            return;
-        }
+
         isEchoing = true;
         deadEchoPacketSent = false;
 
@@ -324,41 +323,44 @@ public class lftuc_main_lib {
             MulticastSocket socket = null;
             try {
                 InetAddress group = InetAddress.getByName(multicastGroup);
-                socket = new MulticastSocket();  // Use MulticastSocket instead of DatagramSocket
+                socket = new MulticastSocket();
                 socket.setReuseAddress(true);
-                socket.setTimeToLive(32);  // Set TTL to allow broader propagation
+                socket.setTimeToLive(32);
 
-                // Optionally bind to a specific network interface
                 NetworkInterface networkInterface = NetworkInterface.getByName("wlan0");
                 if (networkInterface != null) {
                     socket.setNetworkInterface(networkInterface);
                 }
 
-                DatagramPacket packet;
-                int messageCounter = 0;
-                String lftuc_payload = AddressCode+"*"+DeviceName+"*"+IPAddress+"*"+port+"*"+OnlineStatus;
+                String lftuc_payload = AddressCode + "*" + DeviceName + "*" + IPAddress + "*" + port + "*" + OnlineStatus;
+                byte[] data = lftuc_payload.getBytes(StandardCharsets.UTF_8);
+                DatagramPacket packet = new DatagramPacket(data, data.length, group, port);
 
-                while (isEchoing) {
-                    String numberedMessage = lftuc_payload + " - Message " + messageCounter++;
-                    byte[] data = lftuc_payload.getBytes(StandardCharsets.UTF_8);
-                    packet = new DatagramPacket(data, data.length, group, port);
+                while (isEchoing && !Thread.currentThread().isInterrupted()) {
                     socket.send(packet);
-                    Thread.sleep(2000);  // Wait 2 seconds before sending again
+                    Log.d("LFTUCEcho", "Sent multicast packet: " + lftuc_payload);
+                    Thread.sleep(2000);
                 }
 
-                String declareOfflineEcho = AddressCode+"*"+DeviceName+"*"+IPAddress+"*"+port+"*"+0;
-                byte[] data = declareOfflineEcho.getBytes(StandardCharsets.UTF_8);
+                // Send offline packet
+                String declareOfflineEcho = AddressCode + "*" + DeviceName + "*" + IPAddress + "*" + port + "*0";
+                data = declareOfflineEcho.getBytes(StandardCharsets.UTF_8);
                 packet = new DatagramPacket(data, data.length, group, port);
                 socket.send(packet);
                 deadEchoPacketSent = true;
+                Log.d("LFTUCEcho", "Sent dead echo packet.");
             } catch (IOException e) {
+                Log.e("LFTUCEcho", "Multicast error: " + e.getMessage());
+                lftuc_receivedMessages.add("Multicast error: " + e.getMessage());
             } catch (InterruptedException e) {
-
-                isEchoing = false;
+                Log.d("LFTUCEcho", "Multicast thread interrupted.");
             } finally {
                 if (socket != null && !socket.isClosed()) {
                     socket.close();
+                    Log.d("LFTUCEcho", "Multicast socket closed.");
                 }
+                isEchoing = false;
+                deadEchoPacketSent = false;
             }
         });
 
@@ -367,27 +369,25 @@ public class lftuc_main_lib {
 
     //-----------------------------------Stop LFTUC Echo--------------------------------------------
     public static void stopLFTUCMulticastEcho() {
-        if (!isEchoing) return;  // If echoing is already stopped, exit
+        if (!isEchoing) {
+            Log.d("LFTUCEcho", "Echo is not running.");
+            return;
+        }
 
         isEchoing = false;
 
-        // Interrupt the multicast thread immediately
         if (multicastEchoThread != null && multicastEchoThread.isAlive()) {
             multicastEchoThread.interrupt();
+            try {
+                multicastEchoThread.join(1000); // Timeout after 1 second
+                Log.d("LFTUCEcho", "Multicast thread stopped.");
+            } catch (InterruptedException e) {
+                Log.e("LFTUCEcho", "Error joining multicast thread: " + e.getMessage());
+            }
             multicastEchoThread = null;
         }
 
-        // Wait for the "dead echo packet" to be sent
-        long startTime = System.currentTimeMillis();
-        while (!deadEchoPacketSent && System.currentTimeMillis() - startTime < 5000) { // Timeout after 5 seconds
-            try {
-                Thread.sleep(100); // Small wait to allow dead packet sending
-            } catch (InterruptedException e) {
-                break;
-            }
-        }
-
-        deadEchoPacketSent = false; // Reset flag for next session
+        lftuc_receivedMessages.add("Multicast echo stopped.");
     }
     //-------------------------------------START LFTUC Server---------------------------------------
     //-------------------------------------Server-Side Variables
@@ -425,36 +425,41 @@ public class lftuc_main_lib {
                 serverSocket.setReuseAddress(true);
                 serverSocket.bind(new InetSocketAddress(ipv6Addr, 8080));
 
-                File sharedDir = new File(Environment.getExternalStorageDirectory(), "/.LFTUC-Shared/Hosted");
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-                    Log.e("LFTUCServer", "Missing external storage permissions.");
-                    return;
-                }
-
+                File sharedDir = new File(context.getExternalFilesDir(null), ".LFTUC-Shared/Hosted");
                 if (!sharedDir.exists()) {
-                    sharedDir.mkdirs(); // Ensure directory exists
+                    sharedDir.mkdirs();
+                    Log.d("LFTUCServer", "Created shared directory: " + sharedDir.getAbsolutePath());
                 }
 
                 Log.d("LFTUCServer", "Server started on: " + ipv6Address + ":8080");
-                serverRunning.set(true); // ✅ Move this here after checks
+                serverRunning.set(true);
 
-                while (serverRunning.get()) {
-                    if (serverSocket.isClosed()) {
-                        break;
-                    }
-
+                while (serverRunning.get() && !serverSocket.isClosed()) {
                     try {
                         Socket clientSocket = serverSocket.accept();
                         new Thread(() -> LFTUCHandleClient(clientSocket, rootAccess)).start();
                     } catch (IOException e) {
+                        if (!serverRunning.get()) {
+                            Log.d("LFTUCServer", "Server stopped, exiting accept loop.");
+                            break;
+                        }
                         Log.e("LFTUCServer", "Error accepting connection: " + e.getMessage());
                     }
                 }
             } catch (IOException e) {
                 Log.e("LFTUCServer", "Server error: " + e.getMessage());
-                serverRunning.set(false);
+                lftuc_receivedMessages.add("Server error: " + e.getMessage());
             } finally {
-                stopLFTUCServer(); // ✅ Cleanup to prevent crashes
+                serverRunning.set(false);
+                if (serverSocket != null && !serverSocket.isClosed()) {
+                    try {
+                        serverSocket.close();
+                    } catch (IOException e) {
+                        Log.e("LFTUCServer", "Error closing server socket: " + e.getMessage());
+                    }
+                }
+                serverSocket = null;
+                Log.d("LFTUCServer", "Server cleanup complete.");
             }
         });
 
@@ -463,28 +468,34 @@ public class lftuc_main_lib {
 
     // -------------------------------- STOP LFTUC SERVER -----------------------------------
     public static void stopLFTUCServer() {
+        Log.d("LFTUCServer", "Stopping server...");
         if (!serverRunning.get()) {
             Log.d("LFTUCServer", "Server is not running.");
             return;
         }
 
-        serverRunning.set(false); // ✅ Ensure flag is set before stopping
+        serverRunning.set(false); // Signal server to stop
 
         try {
-            if (serverThread != null && serverThread.isAlive()) {
-                serverThread.interrupt();
-                serverThread.join(); // ✅ Ensure proper thread cleanup
-                serverThread = null;
-            }
-
+            // Close serverSocket first to unblock accept()
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
                 serverSocket = null;
+                Log.d("LFTUCServer", "Server socket closed.");
             }
 
-            Log.d("LFTUCServer", "Server successfully stopped.");
+            // Interrupt and join server thread
+            if (serverThread != null && serverThread.isAlive()) {
+                serverThread.interrupt();
+                serverThread.join(2000); // Timeout after 2 seconds
+                serverThread = null;
+                Log.d("LFTUCServer", "Server thread stopped.");
+            }
+
+            lftuc_receivedMessages.add("Server stopped successfully");
         } catch (Exception e) {
             Log.e("LFTUCServer", "Error stopping server: " + e.getMessage());
+            lftuc_receivedMessages.add("Error stopping server: " + e.getMessage());
         }
     }
 
