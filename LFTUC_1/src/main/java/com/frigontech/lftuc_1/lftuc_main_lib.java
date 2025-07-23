@@ -580,7 +580,7 @@ public class lftuc_main_lib {
                 fixedFileName = fixedFileName.substring(0, fixedFileName.length() - 5);//remove [req] from the requested file
             }else{
                 fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(5);//remove [DIR] from the requested file
-                fixedFileName = fixedFileName.substring(0, fixedFileName.length() - 5);//remove [req] from the requested file
+                fixedFileName = fixedFileName.substring(0, fixedFileName.length() - ((fixedFileName.length() >= 5)? 5 : 0));//remove [req] from the requested file, only if it contains the tag
             }
             //requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove the [req] tag
             requestSplicesStringList.set(requestLastIndex, fixedFileName);
@@ -842,6 +842,19 @@ public class lftuc_main_lib {
 
                 dis = new DataInputStream(clientSocket.getInputStream());
 
+                if (!relativePath.contains("[req]")){
+                    in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    List<String> entries = new ArrayList<>();
+                    String line;
+                    while ((line = in.readLine()) != null) {
+                        if (line.equals("LFTUC*FOLDEREND*")) break;
+                        entries.add(line);
+
+                    }
+                    callback.onResult(entries);
+                    return;
+                }
+
                 long fileSizeOrTotalSize = dis.readLong();
 
                 if (fileSizeOrTotalSize == -1L) {
@@ -975,12 +988,4 @@ public class lftuc_main_lib {
         }).start();
     }
 
-    static {
-        lftuc_receivedMessages.add("### STATIC TEST MSG ###");
-        lftuc_currentServers.add(new LFTUCServers(1, "::1", "1234", 1, 1));
-    }
-    public static void printDebug() {
-        System.out.println("MESSAGES: " + lftuc_receivedMessages.size() + " :: " + lftuc_receivedMessages);
-        System.out.println("SERVERS: " + lftuc_currentServers.size() + " :: " + lftuc_currentServers);
-    }
 }
