@@ -575,12 +575,18 @@ public class lftuc_main_lib {
             List<String> requestSplicesStringList = new ArrayList<>(Arrays.asList(requestSplices));
             int requestLastIndex = requestSplicesStringList.size() - 1;
             String fixedFileName = "";
-            if (isRequestingFileContent) {
-                fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(6);//remove [FILE] from the requested file
-                fixedFileName = fixedFileName.substring(0, fixedFileName.length() - 5);//remove [req] from the requested file
-            }else{
+            if(requestedPath.contains("[DIR]")){
                 fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(5);//remove [DIR] from the requested file
-                fixedFileName = fixedFileName.substring(0, fixedFileName.length() - ((fixedFileName.length() >= 5)? 5 : 0));//remove [req] from the requested file, only if it contains the tag
+            }
+
+            if (isRequestingFileContent) {
+                if(requestedPath.contains("[FILE]")){
+                    fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(6);//remove [FILE] from the requested file
+                    fixedFileName = fixedFileName.substring(0, fixedFileName.length() - 5);//remove [req] from the requested file
+                }else{
+                    fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(5);//remove [DIR] from the requested file
+                    fixedFileName = fixedFileName.substring(0, fixedFileName.length() - ((fixedFileName.length() >= 5)? 5 : 0));//remove [req] from the requested file, only if it contains the tag
+                }
             }
             //requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove the [req] tag
             requestSplicesStringList.set(requestLastIndex, fixedFileName);
@@ -844,6 +850,7 @@ public class lftuc_main_lib {
 
                 if (!relativePath.contains("[req]")){
                     in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                    lftuc_receivedMessages.add("ordering file list from server");
                     List<String> entries = new ArrayList<>();
                     String line;
                     while ((line = in.readLine()) != null) {
