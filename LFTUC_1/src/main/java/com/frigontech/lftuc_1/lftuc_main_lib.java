@@ -600,7 +600,7 @@ public class lftuc_main_lib {
             if (targetDir.exists() && targetDir.isDirectory() && !isRequestingFileContent) {
                 File[] files = targetDir.listFiles();
                 for (File file : files) {
-                    String fileEntry = file.isDirectory() ? "[DIR] " : "[FILE] ";
+                    String fileEntry = file.isDirectory() ? "[DIR]" : "[FILE]";
                     fileEntry += file.getName();
                     out.write(fileEntry + "\n");
                 }
