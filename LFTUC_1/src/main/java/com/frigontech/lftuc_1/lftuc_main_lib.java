@@ -933,17 +933,38 @@ public class lftuc_main_lib {
                         callback.onError("Not enough space. Required: " + requiredSize + ", Available: " + availableSize + ".");
                         return;
                     }
-                    //known format -> "[FILE]filename.jepg[req]
-                    String baseName = relativePath.substring(6); // removing the [FILE] tag from the file that we're gonna save after downloading
-                    baseName = baseName.substring(0, baseName.length() - "[req]".length()); // removing the [req] tag from the end of the filename
-                    String extension = baseName.split("\\.")[1]; //"image.jpeg" -> ["image", "jpeg"] ...([0], [1]) //regexing out the special char '.'
-                    baseName = baseName.split("\\.")[0]; // remove extension and the '.' from basename
 
+                    // Suppose: relativePath = "[FILE]image.jpeg[req]"
+                    // Remove [FILE] prefix
+                    String baseName = relativePath.startsWith("[FILE]")
+                            ? relativePath.substring("[FILE]".length())
+                            : relativePath;
 
-                    File targetFile = new File(lftucDir, baseName.substring(6) + extension);
+                    // Remove [req] suffix
+                    baseName = baseName.endsWith("[req]")
+                            ? baseName.substring(0, baseName.length() - "[req]".length())
+                            : baseName;
+
+                    // Now: baseName = "image.jpeg"
+
+                    // Find the last dot for extension
+                    int dotIndex = baseName.lastIndexOf('.');
+                    String namePart;
+                    String extension;
+
+                    if (dotIndex != -1) {
+                        namePart = baseName.substring(0, dotIndex);
+                        extension = baseName.substring(dotIndex); // includes the dot
+                    } else {
+                        namePart = baseName;
+                        extension = ""; // No extension found!
+                    }
+
+                    // Now, construct the full filename (no `substring(6)` here!)
+                    File targetFile = new File(lftucDir, baseName);
                     int count = 1;
                     while (targetFile.exists()) {
-                        targetFile = new File(lftucDir, baseName + "(" + count + ")" + extension);
+                        targetFile = new File(lftucDir, namePart + "(" + count + ")" + extension);
                         count++;
                     }
 
