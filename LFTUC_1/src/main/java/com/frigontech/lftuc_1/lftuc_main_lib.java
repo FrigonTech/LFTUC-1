@@ -587,7 +587,7 @@ public class lftuc_main_lib {
             newContentRequestedPath = String.join("/", requestSplicesStringList);
 
 
-            File initialDir = rootAccess ? lftuc_RootDir : lftuc_SharedDir;
+            File initialDir = /*rootAccess ? lftuc_RootDir :*/ lftuc_SharedDir;
             File targetDir = new File(initialDir, requestedPath);
 
 
