@@ -588,7 +588,7 @@ public class lftuc_main_lib {
 
 
             File initialDir = /*rootAccess ? lftuc_RootDir :*/ lftuc_SharedDir;
-            File targetDir = new File(initialDir, requestedPath);
+            File targetDir = new File(initialDir, newContentRequestedPath);
 
 
             if (targetDir.exists() && targetDir.isDirectory() && !isRequestingFileContent) {
