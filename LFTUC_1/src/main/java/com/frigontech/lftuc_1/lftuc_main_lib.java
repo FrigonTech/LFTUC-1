@@ -936,6 +936,7 @@ public class lftuc_main_lib {
                     //known format -> "[FILE]filename.jepg[req]
                     String baseName = relativePath.substring(6); // removing the [FILE] tag from the file that we're gonna save after downloading
                     baseName = baseName.substring(0, baseName.length() - "[req]".length()); // removing the [req] tag from the end of the filename
+                    baseName = baseName.split("\\.")[0]; // remove extension and the '.' from basename
                     String extension = baseName.split("\\.")[1]; //"image.jpeg" -> ["image", "jpeg"] ...([0], [1]) //regexing out the special char '.'
                     /*int dotIndex = relativePath.lastIndexOf('.');
                     if (dotIndex > 0) {
