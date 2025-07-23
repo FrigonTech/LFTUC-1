@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class lftuc_main_lib {
 
+
     //--------------------------------Get Local IPv4 Address of device------------------------------
     //1. Get all network interfaces
     //2. While Interfaces has 1 or more elements
@@ -972,4 +973,12 @@ public class lftuc_main_lib {
         }).start();
     }
 
+    static {
+        lftuc_receivedMessages.add("### STATIC TEST MSG ###");
+        lftuc_currentServers.add(new LFTUCServers(1, "::1", "1234", 1, 1));
+    }
+    public static void printDebug() {
+        System.out.println("MESSAGES: " + lftuc_receivedMessages.size() + " :: " + lftuc_receivedMessages);
+        System.out.println("SERVERS: " + lftuc_currentServers.size() + " :: " + lftuc_currentServers);
+    }
 }
