@@ -31,7 +31,7 @@ public class lftuc_main_lib {
     //---d. Skip loopback or IPv6 addresses
     //---e. Return the first valid IPv4 address (local)
     //3. Catch Exceptions (if any)
-    public static String lftuc_getLocalIpv4Address() {
+    public static String lftuc_getLocalIpv4Address () {
         try {
             // Get all network interfaces
             Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
