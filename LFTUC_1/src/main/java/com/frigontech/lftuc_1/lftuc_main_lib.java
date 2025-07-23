@@ -435,7 +435,7 @@ public class lftuc_main_lib {
                     Log.d("LFTUCServer", "Created shared directory: " + sharedDir.getAbsolutePath());
                 }
 
-                Log.d("LFTUCServer", "Server started on: " + ipv6Address + ":8080");
+                lftuc_receivedMessages.add("Server started on: " + ipv6Address + ":8080");
                 serverRunning.set(true);
 
                 while (serverRunning.get() && !serverSocket.isClosed()) {
@@ -444,10 +444,10 @@ public class lftuc_main_lib {
                         new Thread(() -> LFTUCHandleClient(clientSocket, rootAccess)).start();
                     } catch (IOException e) {
                         if (!serverRunning.get()) {
-                            Log.d("LFTUCServer", "Server stopped, exiting accept loop.");
+                            lftuc_receivedMessages.add("Server stopped, exiting accept loop.");
                             break;
                         }
-                        Log.e("LFTUCServer", "Error accepting connection: " + e.getMessage());
+                        lftuc_receivedMessages.add( "Error accepting connection: " + e.getMessage());
                     }
                 }
             } catch (IOException e) {
@@ -459,11 +459,11 @@ public class lftuc_main_lib {
                     try {
                         serverSocket.close();
                     } catch (IOException e) {
-                        Log.e("LFTUCServer", "Error closing server socket: " + e.getMessage());
+                        lftuc_receivedMessages.add("Error closing server socket: " + e.getMessage());
                     }
                 }
                 serverSocket = null;
-                Log.d("LFTUCServer", "Server cleanup complete.");
+                lftuc_receivedMessages.add("Server cleanup complete.");
             }
         });
 
@@ -818,10 +818,11 @@ public class lftuc_main_lib {
             List<String> filesInHere = new ArrayList<>();
             isDownloadCancelled = false;
 
-            if (lftuc_currentServers.isEmpty()) {
-                callback.onError("No Current Servers Found Yet!");
-                return;
-            }
+//            if (lftuc_currentServers.isEmpty()) {
+//                callback.onError("No Current Servers Found Yet!");
+//                lftuc_receivedMessages.add("No Current Servers Found Yet!");
+//                return;
+//            } //intended implementation logic deprecated
 
             BufferedWriter out = null;
             BufferedReader in = null;
@@ -845,6 +846,7 @@ public class lftuc_main_lib {
 
                 if (fileSizeOrTotalSize == -1L) {
                     callback.onError("File/Folder doesn't exist on the server.");
+                    lftuc_receivedMessages.add("File/Folder doesn't exist on server");
                     return;
                 } else {
                     String formattedSize = convertFileSize(fileSizeOrTotalSize);
