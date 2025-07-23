@@ -199,7 +199,7 @@ public class lftuc_main_lib {
 
                 case "1":
                     //Status Code: 1 means server is offline (echoed while its going online)
-                    if(!lftuc_currentServers.stream().anyMatch(server->server.ServerAddress.equals(PayloadParts.get(3)))){
+                    if(!lftuc_currentServers.stream().anyMatch(server->server.ServerAddress.equals(PayloadParts.get(2)))){ //2-IP address
                         lftuc_currentServers.add(new LFTUCServers(
                                 Integer.parseInt(PayloadParts.get(0)),
                                 PayloadParts.get(1),
@@ -222,6 +222,9 @@ public class lftuc_main_lib {
     }
 
     //--------------------------------Start Listening to UDP Multicast and Receive Payload----------
+    public static void startLFTUCMulticastListener(Context context, int port) {
+        startLFTUCMulticastListener(context, "239.255.255.250", port);
+    }
     public static void startLFTUCMulticastListener(Context context, String multicastGroup, int port) {
         WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         multicastLock = wifiManager.createMulticastLock("multicastLock");

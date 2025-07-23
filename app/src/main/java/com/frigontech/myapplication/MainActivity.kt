@@ -86,7 +86,17 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
         val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
         activity?.startActivityForResult(intent, 1)
 
-        moveFileObjectToLFTUCSharedDir("/storage/emulated/0/Download/images (1).jpeg", false)
+        startLFTUCServer(context)
+        startLFTUCMulticastEcho(1, "lambda", lftuc_getLinkLocalIPv6Address(), 8080, 1)
+        println("Started server and echo")
+        println("delaying 2 seconds")
+        delay(2000) //2 seconds
+        println("Started listening; delaying 5 seconds")
+        startLFTUCMulticastListener(context, 8080)
+
+        delay(5000) // 5 seconds
+        println("printing current found servers")
+        println(lftuc_currentServers)
 
         while (true) {
             val newMessages = lftuc_getReceivedMessages().filterNot { messages.contains(it) }
