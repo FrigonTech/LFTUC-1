@@ -576,13 +576,13 @@ public class lftuc_main_lib {
             int requestLastIndex = requestSplicesStringList.size() - 1;
             String fixedFileName = "";
             if (isRequestingFileContent) {
-                requestSplicesStringList.get(requestLastIndex).substring(6);//remove [FILE] from the requested file
-                requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove [req] from the requested file
+                fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(6);//remove [FILE] from the requested file
+                fixedFileName = fixedFileName.substring(0, fixedFileName.length() - 5);//remove [req] from the requested file
             }else{
-                requestSplicesStringList.get(requestLastIndex).substring(5);//remove [DIR] from the requested file
-                requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove [req] from the requested file
+                fixedFileName = requestSplicesStringList.get(requestLastIndex).substring(5);//remove [DIR] from the requested file
+                fixedFileName = fixedFileName.substring(0, fixedFileName.length() - 5);//remove [req] from the requested file
             }
-            requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove the [req] tag
+            //requestSplicesStringList.get(requestLastIndex).substring(0, requestSplicesStringList.get(requestLastIndex).length() - 5);//remove the [req] tag
             requestSplicesStringList.set(requestLastIndex, fixedFileName);
             newContentRequestedPath = String.join("/", requestSplicesStringList);
 
