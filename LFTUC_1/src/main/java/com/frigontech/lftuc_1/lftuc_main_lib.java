@@ -918,7 +918,7 @@ public class lftuc_main_lib {
 
                 } else {
                     // Single file receiving mode
-                    String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
+                    //String fileName = relativePath.substring(relativePath.lastIndexOf('/') + 1);
 
                     File lftucDir = new File(Environment.getExternalStorageDirectory(), ".LFTUC-Shared/LFTUC-Received");
                     if (!lftucDir.exists()) lftucDir.mkdirs();
@@ -934,18 +934,19 @@ public class lftuc_main_lib {
                         return;
                     }
 
-                    String baseName = fileName.substring(0, fileName.length() - 5);
-                    String extension = "";
-                    int dotIndex = fileName.lastIndexOf('.');
+                    String baseName = relativePath.substring(6); // removing the [FILE] tag from the file that we're gonna save after downloading
+                    baseName = baseName.substring(0, baseName.length() - "[req]".length()); // removing the [req] tag from the end of the filename
+                    String extension = baseName.split(".")[1]; //"image.jpeg" -> ["image", "jpeg"] ...([0], [1])
+                    /*int dotIndex = relativePath.lastIndexOf('.');
                     if (dotIndex > 0) {
-                        baseName = fileName.substring(0, dotIndex);
-                        extension = fileName.substring(dotIndex);
-                    }
+                        baseName = relativePath.substring(0, dotIndex);
+                        extension = relativePath.substring(dotIndex);
+                    }*/
 
                     File targetFile = new File(lftucDir, baseName.substring(6) + extension);
                     int count = 1;
                     while (targetFile.exists()) {
-                        targetFile = new File(lftucDir, "received_" + baseName + "(" + count + ")" + extension);
+                        targetFile = new File(lftucDir, baseName + "(" + count + ")" + extension);
                         count++;
                     }
 
