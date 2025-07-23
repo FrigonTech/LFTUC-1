@@ -934,7 +934,7 @@ public class lftuc_main_lib {
                         return;
                     }
 
-                    String baseName = fileName;
+                    String baseName = fileName.substring(0, fileName.length() - 5);
                     String extension = "";
                     int dotIndex = fileName.lastIndexOf('.');
                     if (dotIndex > 0) {
