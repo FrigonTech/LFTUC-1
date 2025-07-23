@@ -933,10 +933,10 @@ public class lftuc_main_lib {
                         callback.onError("Not enough space. Required: " + requiredSize + ", Available: " + availableSize + ".");
                         return;
                     }
-
+                    //known format -> "[FILE]filename.jepg[req]
                     String baseName = relativePath.substring(6); // removing the [FILE] tag from the file that we're gonna save after downloading
                     baseName = baseName.substring(0, baseName.length() - "[req]".length()); // removing the [req] tag from the end of the filename
-                    String extension = baseName.split(".")[1]; //"image.jpeg" -> ["image", "jpeg"] ...([0], [1])
+                    String extension = baseName.split("\\.")[1]; //"image.jpeg" -> ["image", "jpeg"] ...([0], [1]) //regexing out the special char '.'
                     /*int dotIndex = relativePath.lastIndexOf('.');
                     if (dotIndex > 0) {
                         baseName = relativePath.substring(0, dotIndex);
