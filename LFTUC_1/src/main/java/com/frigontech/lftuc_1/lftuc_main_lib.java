@@ -936,9 +936,7 @@ public class lftuc_main_lib {
 
                     // Suppose: relativePath = "[FILE]image.jpeg[req]"
                     // Remove [FILE] prefix
-                    String baseName = relativePath.startsWith("[FILE]")
-                            ? relativePath.substring("[FILE]".length())
-                            : relativePath;
+                    String baseName = relativePath.substring("[FILE]".length());
 
                     // Remove [req] suffix
                     baseName = baseName.endsWith("[req]")
